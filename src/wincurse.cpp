@@ -11,10 +11,13 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include "catacharset.h"
 #include "init.h"
+#include "input.h"
 #include "path_info.h"
 #include "filesystem.h"
 #include "debug.h"
+#include "cata_utility.h"
 
 //***********************************
 //Globals                           *
@@ -342,13 +345,20 @@ void curses_drawwindow(WINDOW *win)
                     // Outside of the display area, would not render anyway
                     continue;
                 }
-                const char* utf8str = cell.ch.c_str();
-                int len = cell.ch.length();
-                tmp = UTF8_getch(&utf8str, &len);
+
                 int FG = cell.FG;
                 int BG = cell.BG;
                 FillRectDIB(drawx,drawy,fontwidth,fontheight,BG);
+                static const std::string space_string = " ";
+                // Spaces don't need any drawing except background
+                if( cell.ch == space_string ) {
+                    continue;
+                }
 
+                const char* utf8str = cell.ch.c_str();
+                int len = cell.ch.length();
+
+                tmp = UTF8_getch(&utf8str, &len);
                 if (tmp != UNKNOWN_UNICODE) {
 
                     int color = RGB(windowsPalette[FG].rgbRed,windowsPalette[FG].rgbGreen,windowsPalette[FG].rgbBlue);
@@ -464,7 +474,7 @@ WINDOW *curses_init(void)
     int overmap_fontheight = 16;
     int overmap_fontsize = 16;
     std::string overmap_typeface;
-    bool fontblending;
+    bool fontblending = false;
 
     std::ifstream jsonstream(FILENAMES["fontdata"].c_str(), std::ifstream::binary);
     if (jsonstream.good()) {
@@ -591,9 +601,7 @@ uint64_t GetPerfCount(){
     return Count;
 }
 
-//Not terribly sure how this function is suppose to work,
-//but jday helped to figure most of it out
-int curses_getch(WINDOW* win)
+input_event input_manager::get_input_event( WINDOW *win )
 {
     // standards note: getch is sometimes required to call refresh
     // see, e.g., http://linux.die.net/man/3/getch
@@ -627,9 +635,40 @@ int curses_getch(WINDOW* win)
         ShowCursor(false);
     }
 
-    return lastchar;
+    previously_pressed_key = 0;
+    input_event rval;
+    if( lastchar == ERR ) {
+        if( input_timeout > 0 ) {
+            rval.type = CATA_INPUT_TIMEOUT;
+        } else {
+            rval.type = CATA_INPUT_ERROR;
+        }
+    } else {
+        if( lastchar == 127 ) { // == Unicode DELETE
+            previously_pressed_key = KEY_BACKSPACE;
+            return input_event( KEY_BACKSPACE, CATA_INPUT_KEYBOARD );
+        }
+        rval.type = CATA_INPUT_KEYBOARD;
+        rval.text = utf32_to_utf8( lastchar );
+        previously_pressed_key = lastchar;
+        // for compatibility only add the first byte, not the code point
+        // as it would  conflict with the special keys defined by ncurses
+        rval.add_input( lastchar );
+    }
+
+    return rval;
 }
 
+bool gamepad_available()
+{
+    return false;
+}
+
+bool input_context::get_coordinates( WINDOW *, int &, int & )
+{
+    // TODO: implement this properly
+    return false;
+}
 
 //Ends the terminal, destroy everything
 int curses_destroy(void)
@@ -672,21 +711,38 @@ int curses_start_color(void)
     //TODO: this should be reviewed in the future.
 
     //Load the console colors from colors.json
-    std::ifstream colorfile(FILENAMES["colors"].c_str(), std::ifstream::in | std::ifstream::binary);
-    try{
-        JsonIn jsin(colorfile);
-        // Manually load the colordef object because the json handler isn't loaded yet.
-        jsin.start_array();
-        // find type and dispatch each object until array close
-        while (!jsin.end_array()) {
-            JsonObject jo = jsin.get_object();
-            load_colors(jo);
-            jo.finish();
-        }
-    } catch( const JsonError &err ){
-        throw std::runtime_error( FILENAMES["colors"] + ": " + err.what() );
+    const std::string default_path = FILENAMES["colors"];
+    const std::string custom_path = FILENAMES["base_colors"];
+
+    if ( !file_exist(custom_path) ){
+        std::ifstream src(default_path.c_str(), std::ifstream::in | std::ios::binary);
+        write_to_file_exclusive(custom_path, [&src]( std::ostream &dst ) {
+            dst << src.rdbuf();
+        }, _("base colors") );
     }
 
+    auto load_colorfile = []( const std::string &path ) {
+        std::ifstream colorfile( path.c_str(), std::ifstream::in | std::ifstream::binary );
+        try{
+            JsonIn jsin(colorfile);
+            // Manually load the colordef object because the json handler isn't loaded yet.
+            jsin.start_array();
+            // find type and dispatch each object until array close
+            while (!jsin.end_array()) {
+                JsonObject jo = jsin.get_object();
+                load_colors(jo);
+                jo.finish();
+            }
+            return OK;
+        } catch( const JsonError &e ){
+            DebugLog( D_ERROR, DC_ALL ) << "Failed to load color definitions from " << path << ": " << e;
+            return ERR;
+        }
+    };
+
+    if ( load_colorfile(custom_path) == ERR ){
+        load_colorfile(default_path);
+    }
     if(consolecolors.empty())return SetDIBColorTable(backbuffer, 0, 16, windowsPalette.data());
     windowsPalette[0]  = BGR(ccolor("BLACK"));
     windowsPalette[1]  = BGR(ccolor("RED"));
@@ -707,8 +763,9 @@ int curses_start_color(void)
     return SetDIBColorTable(backbuffer, 0, 16, windowsPalette.data());
 }
 
-void curses_timeout(int t)
+void input_manager::set_timeout( const int t )
 {
+    input_timeout = t;
     inputdelay = t;
 }
 

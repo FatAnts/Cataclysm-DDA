@@ -27,6 +27,7 @@
 #include "lightmap.h"
 #include "rng.h"
 #include <algorithm>
+#include "cata_utility.h"
 
 //TODO replace these includes with filesystem.h
 #ifdef _MSC_VER
@@ -252,6 +253,10 @@ bool InitSDL()
 {
     int init_flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER;
     int ret;
+
+#ifdef SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING
+    SDL_SetHint(SDL_HINT_WINDOWS_DISABLE_THREAD_NAMING, "1");
+#endif
 
     ret = SDL_Init( init_flags );
     if( ret != 0 ) {
@@ -636,26 +641,32 @@ void BitmapFont::OutputChar(long t, int x, int y, unsigned char color)
     }
 }
 
+void refresh_display()
+{
+    needupdate = false;
+    lastupdate = SDL_GetTicks();
+
+    // Select default target (the window), copy rendered buffer
+    // there, present it, select the buffer as target again.
+    if( SDL_SetRenderTarget( renderer, NULL ) != 0 ) {
+        dbg(D_ERROR) << "SDL_SetRenderTarget failed: " << SDL_GetError();
+    }
+    SDL_RenderSetLogicalSize( renderer, WindowWidth, WindowHeight );
+    if( SDL_RenderCopy( renderer, display_buffer, NULL, NULL ) != 0 ) {
+        dbg(D_ERROR) << "SDL_RenderCopy failed: " << SDL_GetError();
+    }
+    SDL_RenderPresent(renderer);
+    if( SDL_SetRenderTarget( renderer, display_buffer ) != 0 ) {
+        dbg(D_ERROR) << "SDL_SetRenderTarget failed: " << SDL_GetError();
+    }
+}
+
 // only update if the set interval has elapsed
-void try_sdl_update()
+static void try_sdl_update()
 {
     unsigned long now = SDL_GetTicks();
     if (now - lastupdate >= interval) {
-        // Select default target (the window), copy rendered buffer
-        // there, present it, select the buffer as target again.
-        if( SDL_SetRenderTarget( renderer, NULL ) != 0 ) {
-            dbg(D_ERROR) << "SDL_SetRenderTarget failed: " << SDL_GetError();
-        }
-        SDL_RenderSetLogicalSize( renderer, WindowWidth, WindowHeight );
-        if( SDL_RenderCopy( renderer, display_buffer, NULL, NULL ) != 0 ) {
-            dbg(D_ERROR) << "SDL_RenderCopy failed: " << SDL_GetError();
-        }
-        SDL_RenderPresent(renderer);
-        if( SDL_SetRenderTarget( renderer, display_buffer ) != 0 ) {
-            dbg(D_ERROR) << "SDL_SetRenderTarget failed: " << SDL_GetError();
-        }
-        needupdate = false;
-        lastupdate = now;
+        refresh_display();
     } else {
         needupdate = true;
     }
@@ -963,6 +974,9 @@ bool Font::draw_window( WINDOW *win, int offsetx, int offsety )
         }
     }
 
+    // @todo Get this from UTF system to make sure it is exactly the kind of space we need
+    static const std::string space_string = " ";
+
     bool update = false;
     for( int j = 0; j < win->height; j++ ) {
         if( !win->line[j].touched ) {
@@ -997,6 +1011,12 @@ bool Font::draw_window( WINDOW *win, int offsetx, int offsety )
 
             if( cell.ch.empty() ) {
                 continue; // second cell of a multi-cell character
+            }
+
+            // Spaces are used a lot, so this does help noticeably
+            if( cell.ch == space_string ) {
+                FillRectDIB( drawx, drawy, fontwidth, fontheight, cell.BG );
+                continue;
             }
             const char *utf8str = cell.ch.c_str();
             int len = cell.ch.length();
@@ -1690,21 +1710,6 @@ std::unique_ptr<Font> Font::load_font(const std::string &typeface, int fontsize,
     return nullptr;
 }
 
-//Ported from windows and copied comments as well
-//Not terribly sure how this function is suppose to work,
-//but jday helped to figure most of it out
-int curses_getch(WINDOW* win)
-{
-    input_event evt = inp_mngr.get_input_event(win);
-    while(evt.type != CATA_INPUT_KEYBOARD) {
-        evt = inp_mngr.get_input_event(win);
-        if (evt.type == CATA_INPUT_TIMEOUT) {
-            return ERR; // Calling functions expect an ERR on timeout
-        }
-    }
-    return evt.sequence[0];
-}
-
 //Ends the terminal, destroy everything
 int curses_destroy(void)
 {
@@ -1758,20 +1763,36 @@ inline SDL_Color ccolor( const std::string &color )
 // Instead it should return ERR or OK, see man curs_color
 int curses_start_color( void )
 {
-    const std::string path = FILENAMES["colors"];
-    std::ifstream colorfile( path.c_str(), std::ifstream::in | std::ifstream::binary );
-    try {
-        JsonIn jsin( colorfile );
-        // Manually load the colordef object because the json handler isn't loaded yet.
-        jsin.start_array();
-        while( !jsin.end_array() ) {
-            JsonObject jo = jsin.get_object();
-            load_colors( jo );
-            jo.finish();
+    const std::string default_path = FILENAMES["colors"];
+    const std::string custom_path = FILENAMES["base_colors"];
+
+    if ( !file_exist(custom_path) ){
+        std::ifstream src(default_path.c_str(), std::ifstream::in | std::ios::binary);
+        write_to_file_exclusive(custom_path, [&src]( std::ostream &dst ) {
+            dst << src.rdbuf();
+        }, _("base colors") );
+    }
+
+    auto load_colorfile = []( const std::string &path ) {
+        std::ifstream colorfile( path.c_str(), std::ifstream::in | std::ifstream::binary );
+        try {
+            JsonIn jsin( colorfile );
+            // Manually load the colordef object because the json handler isn't loaded yet.
+            jsin.start_array();
+            while( !jsin.end_array() ) {
+                JsonObject jo = jsin.get_object();
+                load_colors( jo );
+                jo.finish();
+            }
+            return OK;
+        } catch( const JsonError &e ) {
+            dbg( D_ERROR ) << "Failed to load color definitions from " << path << ": " << e;
+            return ERR;
         }
-    } catch( const JsonError &e ) {
-        dbg( D_ERROR ) << "Failed to load color definitions from " << path << ": " << e;
-        return ERR;
+    };
+
+    if ( load_colorfile(custom_path) == ERR ){
+        load_colorfile(default_path);
     }
     for( size_t c = 0; c < main_color_names.size(); c++ ) {
         windowsPalette[c]  = ccolor( main_color_names[c] );
@@ -1779,8 +1800,9 @@ int curses_start_color( void )
     return OK;
 }
 
-void curses_timeout(int t)
+void input_manager::set_timeout( const int t )
 {
+    input_timeout = t;
     inputdelay = t;
 }
 
@@ -2334,10 +2356,10 @@ Mix_Chunk *do_pitch_shift( Mix_Chunk *s, float pitch ) {
         }
         lt_out = ( Sint16 )( ( float )lt_avg / ( float )( end - begin + 1 ) );
         rt_out = ( Sint16 )( ( float )rt_avg / ( float )( end - begin + 1 ) );
-        result->abuf[( 4 * i ) + 1] = ( lt_out >> 8 ) & 0xFF;
-        result->abuf[( 4 * i ) + 0] = lt_out & 0xFF;
-        result->abuf[( 4 * i ) + 3] = ( rt_out >> 8 ) & 0xFF;
-        result->abuf[( 4 * i ) + 2] = rt_out & 0xFF;
+        result->abuf[( 4 * i ) + 1] = (Uint8)(( lt_out >> 8 ) & 0xFF);
+        result->abuf[( 4 * i ) + 0] = (Uint8)(lt_out & 0xFF);
+        result->abuf[( 4 * i ) + 3] = (Uint8)(( rt_out >> 8 ) & 0xFF);
+        result->abuf[( 4 * i ) + 2] = (Uint8)(rt_out & 0xFF);
     }
     return result;
 }

@@ -1,10 +1,5 @@
 [
     {
-        "type" : "ITEM_CATEGORY",
-        "id" : "veh_parts",
-        "name" : "VEHICLE PARTS",
-        "sort_rank" : 10
-    },{
         "type":"GENERIC",
         "id" : "foldframe",
         "name" : "foldable-light frame",
@@ -45,7 +40,7 @@
         "to_hit" : -3,
         "color" : "light_gray",
         "symbol" : "]",
-        "material" : ["steel"],
+        "material" : ["aluminum"],
         "techniques" : ["DEF_DISARM"],
         "volume" : 40,
         "bashing" : 15,
@@ -296,21 +291,6 @@
         "bashing" : 1,
         "category" : "veh_parts",
         "price" : 2000
-    },
-    {
-        "type":"GENERIC",
-        "id" : "plasma_engine",
-        "name" : "plasma engine",
-        "description" : "High technology plasma engine, working on pressurized hydrogen fuel canisters.",
-        "weight" : 39689,
-        "to_hit" : -2,
-        "color" : "light_cyan",
-        "symbol" : ":",
-        "material" : ["superalloy", "steel"],
-        "volume" : 12,
-        "bashing" : 7,
-        "category" : "veh_parts",
-        "price" : 90000
     },
     {
         "type":"GENERIC",

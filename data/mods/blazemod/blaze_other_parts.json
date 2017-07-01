@@ -16,8 +16,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "223rack",
@@ -36,8 +35,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "22rack",
@@ -56,8 +54,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 3, 8 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "308rack",
@@ -76,8 +73,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "45rack",
@@ -96,8 +92,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 3, 8 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "50bmgrack",
@@ -116,8 +111,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "556rack",
@@ -136,8 +130,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "9mmrack",
@@ -156,8 +149,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 3, 8 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "Waisle_horizontal",
@@ -238,8 +230,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "cargo_space_external",
@@ -274,8 +265,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "drive_by_wire_controls",
@@ -314,8 +304,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "harpoonrack",
@@ -335,8 +324,7 @@
       { "item": "steel_lump", "count": [ 2, 4 ] },
       { "item": "steel_chunk", "count": [ 6, 8 ] },
       { "item": "scrap", "count": [ 6, 8 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "nailrack",
@@ -355,8 +343,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 3, 8 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "omnomnicam",
@@ -378,7 +365,7 @@
       { "item": "e_scrap", "count": [ 4, 16 ] },
       { "item": "plastic_chunk", "count": [ 2, 8 ] }
     ],
-    "flags": [ "NEEDS_BATTERY_MOUNT", "VISION", "CAMERA" ]
+    "flags": [ "NEEDS_BATTERY_MOUNT", "VISION", "CAMERA", "ENABLED_DRAINS_EPOWER" ]
   },
   {
     "id": "pebblerack",
@@ -397,8 +384,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 3, 8 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "ram_alloy",
@@ -546,8 +532,7 @@
       { "item": "steel_lump", "count": [ 2, 4 ] },
       { "item": "steel_chunk", "count": [ 6, 8 ] },
       { "item": "scrap", "count": [ 6, 8 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "sboltrack",
@@ -566,8 +551,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 1, 2 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "shardrack",
@@ -586,8 +570,7 @@
     "breaks_into": [
       { "item": "steel_chunk", "count": [ 3, 8 ] },
       { "item": "scrap", "count": [ 1, 2 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "solar_array",
@@ -601,7 +584,7 @@
     "broken_color": "yellow",
     "difficulty": 6,
     "durability": 250,
-    "epower": 1465,
+    "epower": 600,
     "damage_modifier": 10,
     "breaks_into": [
       { "item": "steel_lump", "count": [ 3, 6 ] },
@@ -623,7 +606,7 @@
     "broken_color": "yellow",
     "difficulty": 6,
     "durability": 250,
-    "epower": 2950,
+    "epower": 1200,
     "damage_modifier": 10,
     "breaks_into": [
       { "item": "steel_lump", "count": [ 3, 6 ] },
@@ -669,8 +652,7 @@
       { "item": "steel_lump", "count": [ 2, 4 ] },
       { "item": "steel_chunk", "count": [ 6, 8 ] },
       { "item": "scrap", "count": [ 6, 8 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "tearer",
@@ -791,8 +773,7 @@
       { "item": "steel_lump", "count": [ 2, 4 ] },
       { "item": "steel_chunk", "count": [ 6, 8 ] },
       { "item": "scrap", "count": [ 6, 8 ] }
-    ],
-    "flags": [ "FUEL_TANK" ]
+    ]
   },
   {
     "id": "wiring",
@@ -813,7 +794,7 @@
   {
     "id": "xfloodlight",
     "type": "vehicle_part",
-    "name": "Floodlight",
+    "name": "solar floodlight",
     "item": "floodlight",
     "location": "on_battery_mount",
     "symbol": "*",
@@ -844,7 +825,7 @@
     "broken_color": "light_gray",
     "difficulty": 4,
     "durability": 300,
-    "epower": 125,
+    "epower": 45,
     "damage_modifier": 80,
     "breaks_into": [
       { "item": "steel_lump", "count": [ 4, 7 ] },
@@ -865,7 +846,7 @@
     "color": "light_blue",
     "broken_color": "light_gray",
     "difficulty": 6,
-    "durability": 300,
+    "durability": 90,
     "epower": 230,
     "damage_modifier": 80,
     "breaks_into": [
@@ -888,7 +869,7 @@
     "broken_color": "yellow",
     "difficulty": 4,
     "durability": 20,
-    "epower": 133,
+    "epower": 50,
     "damage_modifier": 10,
     "breaks_into": [
       { "item": "steel_lump", "count": [ 2, 4 ] },
@@ -910,7 +891,7 @@
     "broken_color": "yellow",
     "difficulty": 6,
     "durability": 20,
-    "epower": 244,
+    "epower": 100,
     "damage_modifier": 10,
     "breaks_into": [
       { "item": "steel_lump", "count": [ 2, 4 ] },
@@ -932,7 +913,7 @@
     "broken_color": "light_gray",
     "difficulty": 8,
     "durability": 30,
-    "epower": 605,
+    "epower": 300,
     "damage_modifier": 10,
     "breaks_into": [
       { "item": "steel_lump", "count": [ 4, 4 ] },

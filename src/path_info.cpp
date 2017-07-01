@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <locale.h>
 
-// create map where we will store the FILENAMES
+/** Map where we store filenames */
 std::map<std::string, std::string> FILENAMES;
 
 void PATH_INFO::init_base_path(std::string path)
@@ -30,7 +30,7 @@ void PATH_INFO::init_user_dir(const char *ud)
         user_dir = getenv("LOCALAPPDATA");
         // On Windows userdir without dot
         dir = std::string(user_dir) + "/cataclysm-dda/";
-#elif defined MACOSX && defined TILES
+#elif defined MACOSX
         user_dir = getenv( "HOME" );
         dir = std::string( user_dir ) + "/Library/Application Support/Cataclysm/";
 #elif (defined USE_XDG_DIR)
@@ -63,17 +63,13 @@ void PATH_INFO::update_pathname(std::string name, std::string path)
 
 void PATH_INFO::update_datadir()
 {
+    // Shared dirs
     update_pathname("gfxdir", FILENAMES["datadir"] + "gfx/");
     update_pathname("luadir", FILENAMES["datadir"] + "lua/");
-
-    // Shared dirs
-    update_pathname("autoexeclua", FILENAMES["luadir"] + "autoexec.lua");
-    update_pathname("class_defslua", FILENAMES["luadir"] + "class_definitions.lua");
     update_pathname("fontdir", FILENAMES["datadir"] + "font/");
     update_pathname("rawdir", FILENAMES["datadir"] + "raw/");
-    update_pathname("jsondir", FILENAMES["datadir"] + "json/");
+    update_pathname("jsondir", FILENAMES["datadir"] + "core/");
     update_pathname("moddir", FILENAMES["datadir"] + "mods/");
-    update_pathname("legacydir", FILENAMES["datadir"] + "legacy/");
     update_pathname("recycledir", FILENAMES["datadir"] + "recycling/");
     update_pathname("namesdir", FILENAMES["datadir"] + "names/");
     update_pathname("titledir", FILENAMES["datadir"] + "title/");
@@ -82,6 +78,8 @@ void PATH_INFO::update_datadir()
     update_pathname("sounddir", FILENAMES["datadir"] + "sound");
 
     // Shared files
+    update_pathname("autoexeclua", FILENAMES["luadir"] + "autoexec.lua");
+    update_pathname("class_defslua", FILENAMES["luadir"] + "class_definitions.lua");
     update_pathname("title", FILENAMES["titledir"] + "en.title");
     update_pathname("motd", FILENAMES["motddir"] + "en.motd");
     update_pathname("credits", FILENAMES["creditsdir"] + "en.credits");
@@ -93,9 +91,8 @@ void PATH_INFO::update_datadir()
     update_pathname("sokoban", FILENAMES["rawdir"] + "sokoban.txt");
     update_pathname("defaulttilejson", FILENAMES["gfx"] + "tile_config.json");
     update_pathname("defaulttilepng", FILENAMES["gfx"] + "tinytile.png");
-    update_pathname("mods-dev-default", FILENAMES["moddir"] + "dev-default-mods.json");
-    update_pathname("mods-user-default", FILENAMES["moddir"] + "user-default-mods.json");
-    update_pathname("obsolete-mods", FILENAMES["moddir"] + "obsolete-mods.json");
+    update_pathname("mods-dev-default", FILENAMES["moddir"] + "default.json");
+    update_pathname("mods-replacements", FILENAMES["moddir"] + "replacements.json");
     update_pathname("defaultsounddir", FILENAMES["datadir"] + "sound");
 }
 
@@ -108,7 +105,9 @@ void PATH_INFO::update_config_dir()
     update_pathname("fontdata", FILENAMES["config_dir"] + "fonts.json");
     update_pathname("autopickup", FILENAMES["config_dir"] + "auto_pickup.json");
     update_pathname("safemode", FILENAMES["config_dir"] + "safemode.json");
+    update_pathname("base_colors", FILENAMES["config_dir"] + "base_colors.json");
     update_pathname("custom_colors", FILENAMES["config_dir"] + "custom_colors.json");
+    update_pathname("mods-user-default", FILENAMES["config_dir"] + "user-default-mods.json");
 }
 
 void PATH_INFO::set_standard_filenames(void)
@@ -135,10 +134,8 @@ void PATH_INFO::set_standard_filenames(void)
     update_pathname("class_defslua", FILENAMES["luadir"] + "class_definitions.lua");
     update_pathname("fontdir", FILENAMES["datadir"] + "font/");
     update_pathname("rawdir", FILENAMES["datadir"] + "raw/");
-    update_pathname("jsondir", FILENAMES["datadir"] + "json/");
+    update_pathname("jsondir", FILENAMES["datadir"] + "core/");
     update_pathname("moddir", FILENAMES["datadir"] + "mods/");
-    update_pathname("legacydir", FILENAMES["datadir"] + "legacy/");
-    update_pathname("recycledir", FILENAMES["datadir"] + "recycling/");
     update_pathname("namesdir", FILENAMES["datadir"] + "names/");
     update_pathname("titledir", FILENAMES["datadir"] + "title/");
     update_pathname("motddir", FILENAMES["datadir"] + "motd/");
@@ -157,9 +154,8 @@ void PATH_INFO::set_standard_filenames(void)
     update_pathname("sokoban", FILENAMES["rawdir"] + "sokoban.txt");
     update_pathname("defaulttilejson", FILENAMES["gfx"] + "tile_config.json");
     update_pathname("defaulttilepng", FILENAMES["gfx"] + "tinytile.png");
-    update_pathname("mods-dev-default", FILENAMES["moddir"] + "dev-default-mods.json");
-    update_pathname("mods-user-default", FILENAMES["moddir"] + "user-default-mods.json");
-    update_pathname("obsolete-mods", FILENAMES["moddir"] + "obsolete-mods.json");
+    update_pathname("mods-dev-default", FILENAMES["moddir"] + "default.json");
+    update_pathname("mods-replacements", FILENAMES["moddir"] + "replacements.json");
     update_pathname("defaultsounddir", FILENAMES["datadir"] + "sound");
 
     update_pathname("savedir", FILENAMES["user_dir"] + "save/");
@@ -188,7 +184,9 @@ void PATH_INFO::set_standard_filenames(void)
     update_pathname("fontdata", FILENAMES["config_dir"] + "fonts.json");
     update_pathname("autopickup", FILENAMES["config_dir"] + "auto_pickup.json");
     update_pathname("safemode", FILENAMES["config_dir"] + "safemode.json");
+    update_pathname("base_colors", FILENAMES["config_dir"] + "base_colors.json");
     update_pathname("custom_colors", FILENAMES["config_dir"] + "custom_colors.json");
+    update_pathname("mods-user-default", FILENAMES["config_dir"] + "user-default-mods.json");
     update_pathname("worldoptions", "worldoptions.json");
 
     // Needed to move files from these legacy locations to the new config directory.

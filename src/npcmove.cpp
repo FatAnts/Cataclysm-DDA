@@ -1,5 +1,6 @@
-#include <sstream>
 #include "npc.h"
+
+#include "dispersion.h"
 #include "rng.h"
 #include "game.h"
 #include "map.h"
@@ -17,8 +18,13 @@
 #include "mtype.h"
 #include "field.h"
 #include "sounds.h"
+#include "gates.h"
 
 #include <algorithm>
+#include <sstream>
+
+// @todo Get rid of this include
+#include "mapdata.h"
 
 #define NPC_DANGER_VERY_LOW 5
 
@@ -269,9 +275,8 @@ void npc::move()
              name.c_str(), target_name.c_str(), ai_cache.danger, confident_shoot_range( weapon ) );
 
     //faction opinion determines if it should consider you hostile
-    if( my_fac != nullptr && my_fac->likes_u < -10 && is_enemy() && sees( g->u ) ) {
-        add_msg( m_debug, "NPC %s turning hostile because my_fac->likes_u %d < -10",
-                 name.c_str(), my_fac->likes_u );
+    if( !is_enemy() && guaranteed_hostile() && sees( g->u ) ) {
+        add_msg( m_debug, "NPC %s turning hostile because is guaranteed_hostile()", name.c_str() );
         if (op_of_u.fear > 10 + personality.aggression + personality.bravery) {
             attitude = NPCATT_FLEE;    // We don't want to take u on!
         } else {
@@ -494,7 +499,7 @@ void npc::execute_action( npc_action action )
             reach_attack( tar );
             break;
         }
-        // Otherwise fallthrough to npc_melee
+        /* fallthrough */
     case npc_melee:
         update_path( tar );
         if( path.size() > 1 ) {
@@ -594,15 +599,30 @@ void npc::execute_action( npc_action action )
                 continue;
             }
 
+            // a seat is available if either unassigned or assigned to us
+            auto available_seat = [&]( const vehicle_part &pt ) {
+                if( !pt.is_seat() ) {
+                    return false;
+                }
+                const npc *who = pt.crew();
+                return !who || who->getID() == getID();
+            };
+
+            const auto &pt = veh->parts[p2];
+
             int priority = 0;
-            if( veh->parts[p2].mount == last_dest ) {
+
+            if( pt.mount == last_dest ) {
                 // Shares mount point with last known path
                 // We probably wanted to go there in the last turn
                 priority = 4;
-            } else if( veh->part_flag( p2, "SEAT" ) ) {
-                // Assuming the player "owns" a sensible vehicle,
-                //  seats should be in good spots to occupy
-                priority = veh->part_with_feature( p2, "SEATBELT" ) >= 0 ? 3 : 2;
+
+            } else if( available_seat( pt ) ) {
+                // Assuming player "owns" a sensible vehicle seats should be in good spots to occupy
+                // Prefer our assigned seat if we have one
+                const npc *who = pt.crew();
+                priority = who && who->getID() == getID() ? 3 : 2;
+
             } else if( veh->is_inside( p2 ) ) {
                 priority = 1;
             }
@@ -611,7 +631,7 @@ void npc::execute_action( npc_action action )
                 my_spot = priority;
             }
 
-            seats.push_back( std::make_pair( priority, p2 ) );
+            seats.push_back( std::make_pair( priority, static_cast<int>( p2 ) ) );
         }
 
         if( my_spot >= 3 ) {
@@ -1243,51 +1263,31 @@ int npc::confident_gun_mode_range( const item::gun_mode &gun, int at_recoil ) co
         return 0;
     }
 
-    double deviation = get_weapon_dispersion( *gun.target ) + at_recoil;
-    // Halve to get expected values
-    deviation /= 2;
-    // Convert from MoA back to quarter-degrees.
-    deviation /= 15;
-
-    int ret = std::min( int( confidence_mult() * 360 / deviation ), gun->gun_range( this ) );
-
+    double average_dispersion = get_weapon_dispersion( *( gun.target ), RANGE_SOFT_CAP ).avg() +
+      (double)at_recoil;
+    double even_chance_range = 0.5 / average_dispersion;
     // 5 round burst equivalent to ~2 individually aimed shots
-    ret /= std::max( sqrt( gun.qty / 1.5 ), 1.0 );
+    even_chance_range /= std::max( sqrt( gun.qty / 1.5 ), 1.0 );
+    double confident_range = even_chance_range * confidence_mult();
 
-    add_msg( m_debug, "confident_gun_mode_range (%s=%d)", gun.mode.c_str(), ret );
-    return std::max( ret, 1 );
+    add_msg( m_debug, "confident_gun_mode_range (%s=%d)", gun.mode.c_str(), (int)confident_range );
+    return std::max<int>( confident_range, 1 );
 }
 
-int npc::confident_throw_range( const item &thrown ) const
+int npc::confident_throw_range( const item &thrown, Creature *target ) const
 {
-    ///\EFFECT_THROW_NPC increases throwing confidence of all items
-    double deviation = 10 - get_skill_level( skill_throw );
-
-    ///\EFFECT_PER_NPC increases throwing confidence of all items
-    deviation += 10 - per_cur;
-
-    ///\EFFECT_DEX_NPC increases throwing confidence of all items
-    deviation += throw_dex_mod();
-
-    ///\EFFECT_STR_NPC increases throwing confidence of heavy items
-    deviation += std::min( ( thrown.weight() / 100 ) - str_cur, 0 );
-
-    deviation += thrown.volume() / units::legacy_volume_factor / 4;
-
-    deviation += encumb( bp_hand_r ) + encumb( bp_hand_l ) + encumb( bp_eyes );
-
-    deviation = std::max( 1.0, deviation );
-
-    const int ret = std::min( int( confidence_mult() * 360 / deviation ), throw_range( thrown ) );
-    add_msg( m_debug, "confident_throw_range == %d", ret );
-    return ret;
+    double average_dispersion = throwing_dispersion( thrown, target ) / 2.0;
+    double even_chance_range = ( target == nullptr ? 0.5 : target->ranged_target_size() ) / average_dispersion;
+    double confident_range = even_chance_range * confidence_mult();
+    add_msg( m_debug, "confident_throw_range == %d", (int)confident_range );
+    return (int)confident_range;
 }
 
 // Index defaults to -1, i.e., wielded weapon
 bool npc::wont_hit_friend( const tripoint &tar, const item &it, bool throwing ) const
 {
     // @todo Get actual dispersion instead of extracting it (badly) from confident range
-    int confident = throwing ? confident_throw_range( it ) : confident_shoot_range( it );
+    int confident = throwing ? confident_throw_range( it, nullptr ) : confident_shoot_range( it );
     // if there is no confidence at using weapon, it's not used at range
     // zero confidence leads to divide by zero otherwise
     if( confident < 1 ) {
@@ -1366,6 +1366,11 @@ void npc::aim()
 
 bool npc::update_path( const tripoint &p, const bool no_bashing, bool force )
 {
+    if( p == tripoint_min ) {
+        add_msg( m_debug, "Pathing to tripoint_min" );
+        return false;
+    }
+
     if( p == pos() ) {
         path.clear();
         return true;
@@ -1383,8 +1388,7 @@ bool npc::update_path( const tripoint &p, const bool no_bashing, bool force )
         }
     }
 
-    const int bash_power = no_bashing ? 0 : smash_ability();
-    auto new_path = g->m.route( pos(), p, bash_power, 1000 );
+    auto new_path = g->m.route( pos(), p, get_pathfinding_settings( no_bashing ), get_path_avoid() );
     if( new_path.empty() ) {
         add_msg( m_debug, "Failed to path %d,%d,%d->%d,%d,%d",
                  posx(), posy(), posz(), p.x, p.y, p.z );
@@ -1558,24 +1562,17 @@ void npc::move_to( const tripoint &pt, bool no_bashing )
     }
 
     if( moved ) {
+        const tripoint old_pos = pos();
+        setpos( p );
         if( in_vehicle ) {
-            g->m.unboard_vehicle( pos() );
+            g->m.unboard_vehicle( old_pos );
         }
 
         // Close doors behind self (if you can)
         if( is_friend() && rules.close_doors ) {
-            if( veh != nullptr ) {
-                vpart = veh->next_part_to_close( vpart );
-                if( vpart >= 0 ) {
-                    veh->close( vpart );
-                    mod_moves( -90 );
-                }
-            } else if( g->m.close_door( pos(), !g->m.is_outside( p ), false ) ) {
-                mod_moves( -90 );
-            }
+            doors::close_door( g->m, *this, old_pos );
         }
 
-        setpos( p );
         int part;
         vehicle *veh = g->m.veh_at( p, part );
         if( veh != nullptr && veh->part_with_feature( part, VPFLAG_BOARDABLE ) >= 0 ) {
@@ -1705,6 +1702,28 @@ void npc::move_pause()
     }
 }
 
+static tripoint nearest_passable( const tripoint &p, const tripoint &closest_to )
+{
+    if( g->m.passable( p ) ) {
+        return p;
+    }
+
+    // We need to path to adjacent tile, not the exact one
+    // Let's pick the closest one to us that is passable
+    auto candidates = closest_tripoints_first( 1, p );
+    std::sort( candidates.begin(), candidates.end(), [ closest_to ]( const tripoint &l, const tripoint &r ) {
+        return rl_dist( closest_to, l ) < rl_dist( closest_to, r );
+    } );
+    auto iter = std::find_if( candidates.begin(), candidates.end(), []( const tripoint &pt ) {
+        return g->m.passable( pt );
+    } );
+    if( iter != candidates.end() ) {
+        return *iter;
+    }
+
+    return tripoint_min;
+}
+
 void npc::find_item()
 {
     if( is_following() && !rules.allow_pick_up ) {
@@ -1728,6 +1747,10 @@ void npc::find_item()
 
     const bool whitelisting = has_item_whitelist();
 
+    if( volume_allowed <= 0 || weight_allowed <= 0 ) {
+        return;
+    }
+
     const auto consider_item =
         [&wanted, &best_value, whitelisting, volume_allowed, weight_allowed, this]
         ( const item &it, const tripoint &p ) {
@@ -1749,23 +1772,48 @@ void npc::find_item()
             wanted_item_pos = p;
             wanted = &( it );
             best_value = itval;
-            fetching_item = true;
         }
     };
 
-    for( const tripoint &p : g->m.points_in_radius( pos(), range ) ) {
+    // Harvest item doesn't exist, so we'll be checking by its name
+    std::string wanted_name;
+    const auto consider_terrain =
+        [ this, whitelisting, volume_allowed, &wanted, &wanted_name ]( const tripoint &p ) {
+        // We only want to pick plants when there are no items to pick
+        if( !whitelisting || wanted != nullptr || !wanted_name.empty() ||
+            volume_allowed < units::from_milliliter( 250 ) ) {
+            return;
+        }
+
+        const auto harvest = g->m.get_harvest_names( p );
+        for( const auto &entry : harvest ) {
+            if( item_name_whitelisted( entry ) ) {
+                wanted_name = entry;
+                wanted_item_pos = p;
+                break;
+            }
+        }
+    };
+
+    for( const tripoint &p : closest_tripoints_first( range, pos() ) ) {
         // TODO: Make this sight check not overdraw nearby tiles
         // TODO: Optimize that zone check
-        if( g->m.sees_some_items( p, *this ) && sees( p ) &&
-            ( !is_following() || !g->check_zone( no_pickup, p ) ) ) {
+        if( is_following() && g->check_zone( no_pickup, p ) ) {
+            continue;
+        }
+
+        if( g->m.sees_some_items( p, *this ) && sees( p ) ) {
             for( const item &it : g->m.i_at( p ) ) {
                 consider_item( it, p );
             }
         }
 
+        // Allow terrain check without sight, because it would cost more CPU than it is worth
+        consider_terrain( p );
+
         int veh_part = -1;
         const vehicle *veh = g->m.veh_at( p, veh_part );
-        if( veh == nullptr || veh->velocity != 0 ) {
+        if( veh == nullptr || veh->velocity != 0 || !sees( p ) ) {
             continue;
         }
 
@@ -1780,22 +1828,29 @@ void npc::find_item()
         }
     }
 
-    if( !fetching_item ) {
+    if( wanted != nullptr ) {
+        wanted_name = wanted->tname();
+    }
+
+    if( wanted_name.empty() ) {
         return;
     }
+
+    fetching_item = true;
 
     // TODO: Move that check above, make it multi-target pathing and use it
     // to limit tiles available for choice of items
     const int dist_to_item = rl_dist( wanted_item_pos, pos() );
-    update_path( wanted_item_pos );
+    const tripoint dest = nearest_passable( wanted_item_pos, pos() );
+    update_path( dest );
+
     if( path.empty() && dist_to_item > 1 ) {
         // Item not reachable, let's just totally give up for now
         fetching_item = false;
     }
 
     if( fetching_item && rl_dist( wanted_item_pos, pos() ) > 1 && is_following() ) {
-        say( _("Hold on, I want to pick up that %s."),
-             wanted->tname().c_str() );
+        say( _("Hold on, I want to pick up that %s."), wanted_name.c_str() );
     }
 }
 
@@ -1808,10 +1863,6 @@ void npc::pick_up_item()
         return;
     }
 
-    add_msg( m_debug, "%s::pick_up_item(); [%d, %d, %d] => [%d, %d, %d]", name.c_str(),
-             posx(), posy(), posz(), wanted_item_pos.x, wanted_item_pos.y, wanted_item_pos.z );
-    update_path( wanted_item_pos );
-
     int veh_part = -1;
     vehicle *veh = g->m.veh_at( wanted_item_pos, veh_part );
     if( veh != nullptr ) {
@@ -1822,23 +1873,32 @@ void npc::pick_up_item()
                            veh_part >= 0 &&
                            !veh->part_flag( veh_part, "LOCKED" );
 
-    if( ( !g->m.has_items( wanted_item_pos ) && !has_cargo && sees( wanted_item_pos ) ) ||
+    if( ( !g->m.has_items( wanted_item_pos ) && !has_cargo &&
+          !g->m.is_harvestable( wanted_item_pos ) && sees( wanted_item_pos ) ) ||
         ( is_following() && g->check_zone( "NO_NPC_PICKUP", wanted_item_pos ) ) ) {
         // Items we wanted no longer exist and we can see it
         // Or player who is leading us doesn't want us to pick it up
         fetching_item = false;
-        // Just to prevent debugmsgs
-        moves -= 1;
+        move_pause();
+        add_msg( m_debug, "Canceling pickup - no items or new zone" );
         return;
     }
 
-    if( path.size() > 1 ) {
+
+    add_msg( m_debug, "%s::pick_up_item(); [%d, %d, %d] => [%d, %d, %d]", name.c_str(),
+             posx(), posy(), posz(), wanted_item_pos.x, wanted_item_pos.y, wanted_item_pos.z );
+    const tripoint dest = nearest_passable( wanted_item_pos, pos() );
+    update_path( dest );
+
+    const int dist_to_pickup = rl_dist( pos(), wanted_item_pos );
+    if( dist_to_pickup > 1 && !path.empty() ) {
         add_msg( m_debug, "Moving; [%d, %d, %d] => [%d, %d, %d]",
                  posx(), posy(), posz(), path[0].x, path[0].y, path[0].z );
 
         move_to_next();
         return;
-    } else if( path.empty() && pos() != wanted_item_pos ) {
+    } else if( dist_to_pickup > 1 && path.empty() ) {
+        add_msg( m_debug, "Can't find path" );
         // This can happen, always do something
         fetching_item = false;
         move_pause();
@@ -1850,6 +1910,17 @@ void npc::pick_up_item()
     auto picked_up = pick_up_item_map( wanted_item_pos );
     if( picked_up.empty() && has_cargo ) {
         picked_up = pick_up_item_vehicle( *veh, veh_part );
+    }
+
+    if( picked_up.empty() ) {
+        // Last chance: plant harvest
+        if( g->m.is_harvestable( wanted_item_pos ) ) {
+            g->m.examine( *this, wanted_item_pos );
+            // Note: we didn't actually pick up anything, just spawned items
+            // but we want the item picker to find new items
+            fetching_item = false;
+            return;
+        }
     }
     // Describe the pickup to the player
     bool u_see = g->u.sees( *this ) || g->u.sees( wanted_item_pos );
@@ -2130,7 +2201,7 @@ bool npc::do_pulp()
 
     // TODO: Don't recreate the activity every time
     int old_moves = moves;
-    assign_activity( ACT_PULP, INT_MAX, 0 );
+    assign_activity( activity_id( "ACT_PULP" ), calendar::INDEFINITELY_LONG, 0 );
     activity.placement = pulp_location;
     activity.do_turn( this );
     return moves != old_moves;
@@ -2180,7 +2251,7 @@ bool npc::wield_better_weapon()
 
     visit_items( [this, &compare_weapon]( item *node ) {
         // Skip some bad items
-        if( !node->is_gun() && node->type->melee_dam + node->type->melee_cut < 5 ) {
+        if( !node->is_melee() ) {
             return VisitResponse::SKIP;
         }
 
@@ -2326,7 +2397,7 @@ bool npc::alt_attack()
     }
 
     // We are throwing it!
-    int conf = confident_throw_range( *used );
+    int conf = confident_throw_range( *used, critter );
     const bool wont_hit = wont_hit_friend( tar, *used, true );
     if( dist <= conf && wont_hit ) {
         npc_throw( *this, *used, weapon_index, tar );
@@ -2456,7 +2527,9 @@ void npc::heal_self()
     }
 
     long charges_used = used.type->invoke( this, &used, pos(), "heal" );
-    consume_charges( used, charges_used );
+    if( used.is_medication() ) {
+        consume_charges( used, charges_used );
+    }
 }
 
 void npc::use_painkiller()
@@ -2753,8 +2826,9 @@ void npc::reach_destination()
         // No point recalculating the path to get home
         move_to_next();
     } else if( guard_pos != no_goal_point ) {
-        const tripoint dest( guard_pos.x - mapx * SEEX,
-                             guard_pos.y - mapy * SEEY,
+        const tripoint sm_dir = goal - submap_coords;
+        const tripoint dest( sm_dir.x * SEEX + guard_pos.x - posx(),
+                             sm_dir.y * SEEY + guard_pos.y - posy(),
                              guard_pos.z );
         update_path( dest );
         move_to_next();
@@ -2796,6 +2870,7 @@ void npc::set_destination()
     switch(needs[0]) {
     case need_ammo:
         options.push_back("house");
+        /* fallthrough */
     case need_gun:
         options.push_back("s_gun");
         break;
@@ -2810,6 +2885,7 @@ void npc::set_destination()
         options.push_back("s_gas");
         options.push_back("s_pharm");
         options.push_back("s_liquor");
+        /* fallthrough */
     case need_food:
         options.push_back("s_grocery");
         break;
@@ -3078,17 +3154,25 @@ bool npc::complain()
 
 void npc::do_reload( item &it )
 {
-    auto usable_ammo = find_usable_ammo( it );
+    item::reload_option reload_opt = select_ammo( it );
 
-    if( !usable_ammo ) {
-        debugmsg( "do_reload failed: no usable ammo" );
+    if( !reload_opt ) {
+        debugmsg( "do_reload failed: no usable ammo for %s", it.tname().c_str() );
         return;
     }
 
+    // Note: we may be reloading the magazine inside, not the gun itself
+    // Maybe @todo: allow reload functions to understand such reloads instead of const casts
+    item &target = const_cast<item &>( *reload_opt.target );
+    item_location &usable_ammo = reload_opt.ammo;
+
     long qty = std::max( 1l, std::min( usable_ammo->charges, it.ammo_capacity() - it.ammo_remaining() ) );
     int reload_time = item_reload_cost( it, *usable_ammo, qty );
-    if( !it.reload( *this, std::move( usable_ammo ), qty ) ) {
-        debugmsg( "do_reload failed: item could not be reloaded" );
+    // @todo Consider printing this info to player too
+    const std::string ammo_name = usable_ammo->tname();
+    if( !target.reload( *this, std::move( usable_ammo ), qty ) ) {
+        debugmsg( "do_reload failed: item %s could not be reloaded with %ld charge(s) of %s",
+                  it.tname().c_str(), qty, ammo_name.c_str() );
         return;
     }
 
@@ -3155,39 +3239,27 @@ npc_target::npc_target() : npc_target( TARGET_NONE, 0 )
 {
 }
 
-bool covers_broken( const Character &who, const item &it )
-{
-    const auto covered = it.get_covered_body_parts();
-    for( size_t i = 0; i < num_hp_parts; i++ ) {
-
-        if( who.hp_cur[ i ] <= 0 && covered[ player::hp_to_bp( hp_part( i ) ) ] ) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 bool npc::adjust_worn()
 {
-    // Currently just splints
-    const std::string splint_string( "SPLINT" );
-    for( auto &it : worn ) {
-        if( !it.has_flag( splint_string ) ) {
+    const auto covers_broken = [this]( const item &it, side s ) {
+        const auto covered = it.get_covered_body_parts( s );
+        for( size_t i = 0; i < num_hp_parts; i++ ) {
+            if( hp_cur[ i ] <= 0 && covered.test( hp_to_bp( hp_part( i ) ) ) ) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    for( auto &elem : worn ) {
+        if( !elem.has_flag( "SPLINT" ) ) {
             continue;
         }
 
-        // If the split is covering a broken part, let it stay there
-        bool any_broken = covers_broken( *this, it );
-        if( any_broken ) {
-            continue;
-        }
-
-        // Not covering any broken part, see if we have any on opposite side
-        it.set_side( it.get_side() == LEFT ? RIGHT : LEFT );
-        any_broken = covers_broken( *this, it );
-        if( !any_broken ) {
-            if( takeoff( it ) ) {
+        if( !covers_broken( elem, elem.get_side() ) ) {
+            const bool needs_change = covers_broken( elem, opposite_side( elem.get_side() ) );
+            // Try to change side (if it makes sense), or takoff.
+            if( ( needs_change && change_side( elem ) ) || takeoff( elem ) ) {
                 return true;
             }
         }

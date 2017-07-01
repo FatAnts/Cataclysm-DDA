@@ -9,16 +9,14 @@
 #include "mtype.h"
 #include "options.h"
 #include "player.h"
+#include "vehicle.h"
+
+#include "test_statistics.h"
 
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
-
-std::ostream& operator << ( std::ostream& os, tripoint const& value ) {
-    os << "(" << value.x << "," << value.y << "," << value.z << ")";
-    return os;
-}
 
 static void wipe_map_terrain()
 {
@@ -29,6 +27,10 @@ static void wipe_map_terrain()
             g->m.set(x, y, t_grass, f_null);
         }
     }
+    for( wrapped_vehicle &veh : g->m.get_vehicles( tripoint( 0, 0, 0 ), tripoint( MAPSIZE * SEEX, MAPSIZE * SEEY, 0 ) ) ) {
+        g->m.destroy_vehicle( veh.v );
+    }
+    g->m.build_map_cache( 0, true );
 }
 
 static void clear_map()
@@ -51,7 +53,7 @@ static monster &spawn_test_monster( const std::string &monster_type, const tripo
 }
 
 static int moves_to_destination( const std::string &monster_type,
-                          const tripoint &start, const tripoint &end )
+                                 const tripoint &start, const tripoint &end )
 {
     REQUIRE( g->num_zombies() == 0 );
     monster &test_monster = spawn_test_monster( monster_type, start );
@@ -177,37 +179,6 @@ static int can_catch_player( const std::string &monster_type, const tripoint &di
     return -1000;
 }
 
-class statistics {
-private:
-    int _types;
-    int _n;
-    int _sum;
-    int _max;
-    int _min;
-    std::vector<int> samples;
-
-public:
-    statistics() : _types(0), _n(0), _sum(0), _max(INT_MIN), _min(INT_MAX) {}
-
-    void new_type() {
-        _types++;
-    }
-    void add( int new_val ) {
-        _n++;
-        _sum += new_val;
-        _max = std::max(_max, new_val);
-        _min = std::min(_min, new_val);
-        samples.push_back(new_val);
-    }
-    int types() const { return _types; }
-    int sum() const { return _sum; }
-    int max() const { return _max; }
-    int min() const { return _min; }
-    float avg() const { return (float)_sum / (float)_n; }
-    int n() const { return _n; }
-    std::vector<int> get_samples() { return samples; }
-};
-
 // Verify that the named monster has the expected effective speed, not reduced
 // due to wasted motion from shambling.
 static void check_shamble_speed( const std::string monster_type, const tripoint &destination )
@@ -281,7 +252,7 @@ static void test_moves_to_squares( std::string monster_type, bool write_data = f
     for( const auto &stat_pair : turns_at_slope ) {
         INFO( "Monster:" << monster_type << " Slope: " << stat_pair.first <<
               " moves: " << stat_pair.second.avg() << " types: " << stat_pair.second.types() );
-        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.03) );
+        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.1) );
     }
     for( auto &stat_pair : turns_at_angle ) {
         std::stringstream sample_string;
@@ -291,7 +262,7 @@ static void test_moves_to_squares( std::string monster_type, bool write_data = f
         INFO( "Monster:" << monster_type << " Angle: " << stat_pair.first <<
               " moves: " << stat_pair.second.avg() << " types: " << stat_pair.second.types() <<
               " samples: " << sample_string.str() );
-        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.05) );
+        CHECK( stat_pair.second.avg() == Approx(100.0).epsilon(0.1) );
     }
 
     if( write_data ) {
@@ -312,7 +283,7 @@ static void monster_check() {
     int horiz_move = moves_to_destination( "mon_pig", {0,0,0}, {0,100,0} );
     CHECK( (horiz_move / 10000.0) == Approx(1.0) );
     int diag_move = moves_to_destination( "mon_pig", {0,0,0}, {100,100,0} );
-    CHECK( (diag_move / (10000.0 * diagonal_multiplier)) == Approx(1.0).epsilon(0.01) );
+    CHECK( (diag_move / (10000.0 * diagonal_multiplier)) == Approx(1.0).epsilon(0.05) );
 
     check_shamble_speed( "mon_pig", {100, 0, 0} );
     check_shamble_speed( "mon_pig", {0, 100, 0} );
@@ -361,14 +332,14 @@ TEST_CASE("write_slope_to_speed_map_square", "[.]") {
 
 // Characterization test for monster movement speed.
 // It's not necessarally the one true speed for monsters, we just want notice if it changes.
-TEST_CASE("monster_speed_square") {
+TEST_CASE("monster_speed_square", "[speed]") {
     clear_map();
     get_options().get_option( "CIRCLEDIST" ).setValue("false");
     trigdist = false;
     monster_check();
 }
 
-TEST_CASE("monster_speed_trig") {
+TEST_CASE("monster_speed_trig", "[speed]") {
     clear_map();
     get_options().get_option( "CIRCLEDIST" ).setValue("true");
     trigdist = true;

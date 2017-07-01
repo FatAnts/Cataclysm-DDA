@@ -1,3 +1,4 @@
+#pragma once
 #ifndef REQUIREMENTS_H
 #define REQUIREMENTS_H
 
@@ -35,28 +36,26 @@ struct quality {
 
     std::vector<std::pair<int, std::string>> usages;
 
-    void load( JsonObject &jo );
+    void load( JsonObject &jo, const std::string &src );
 
     static void reset();
-    static void load_static( JsonObject &jo );
+    static void load_static( JsonObject &jo, const std::string &src );
 };
 
 struct component {
-    itype_id type;
-    int count;
+    itype_id type = "null";
+    int count = 0;
     // -1 means the player doesn't have the item, 1 means they do,
     // 0 means they have item but not enough for both tool and component
-    mutable available_status available;
-    bool recoverable;
+    mutable available_status available = a_false;
+    bool recoverable = true;
+    // If true, it's not actually a component but a requirement (list of components)
+    bool requirement = false;
 
-    component() : type( "null" ) , count( 0 ) , available( a_false ), recoverable( true ) {
-    }
-    component( const itype_id &TYPE, int COUNT ) : type( TYPE ), count( COUNT ), available( a_false ),
-        recoverable( true ) {
-    }
-    component( const itype_id &TYPE, int COUNT, bool RECOVERABLE ) : type( TYPE ), count( COUNT ),
-        available( a_false ), recoverable( RECOVERABLE ) {
-    }
+    component() { }
+    component( const itype_id &TYPE, int COUNT ) : type( TYPE ), count( COUNT ) { }
+    component( const itype_id &TYPE, int COUNT, bool RECOVERABLE ) :
+        type( TYPE ), count( COUNT ), recoverable( RECOVERABLE ) { }
     void check_consistency( const std::string &display_name ) const;
 };
 
@@ -82,16 +81,15 @@ struct item_comp : public component {
 };
 
 struct quality_requirement {
-    quality_id type;
-    int count;
-    int level;
-    mutable available_status available;
+    quality_id type = quality_id( "UNKNOWN" );
+    int count = 1;
+    int level = 1;
+    mutable available_status available = a_false;
+    bool requirement = false; // Currently unused, but here for consistency and templates
 
-    quality_requirement() : type( "UNKNOWN" ), count( 0 ), level( 0 ), available( a_false ) {
-    }
+    quality_requirement() { }
     quality_requirement( const quality_id &TYPE, int COUNT, int LEVEL ) : type( TYPE ), count( COUNT ),
-        level( LEVEL ), available( a_false ) {
-    }
+        level( LEVEL ) { }
 
     void load( JsonArray &jarr );
     bool has( const inventory &crafting_inv, int = 0 ) const;
@@ -173,18 +171,23 @@ struct requirement_data {
         /**
          * Load @ref tools, @ref qualities and @ref components from
          * the json object. Assumes them to be in sub-objects.
+         * @param jsobj Object to load data from
          * @param id provide (or override) unique id for this instance
          */
         static void load_requirement( JsonObject &jsobj, const std::string &id = "" );
 
         /**
          * Store requirement data for future lookup
+         * @param req Data to save
          * @param id provide (or override) unique id for this instance
          */
         static void save_requirement( const requirement_data &req, const std::string &id = "" );
 
         /** Get all currently loaded requirements */
         static const std::map<requirement_id, requirement_data> &all();
+
+        /** Finalizes requirements, must be called AFTER finalizing items, but before recipes! */
+        static void finalize();
 
         /** Check consistency of all loaded requirements */
         static void check_consistency();
@@ -222,7 +225,7 @@ struct requirement_data {
          * Gets a variant of this recipe with crafting-only tools replaced by their
          * disassembly equivalents.
          */
-        const requirement_data disassembly_requirements() const;
+        requirement_data disassembly_requirements() const;
 
     private:
         requirement_id id_ = requirement_id( "null" );
@@ -236,6 +239,8 @@ struct requirement_data {
         template<typename T>
         static void check_consistency( const std::vector< std::vector<T> > &vec,
                                        const std::string &display_name );
+        template<typename T>
+        static void finalize( std::vector< std::vector<T> > &vec );
         template<typename T>
         static std::string print_missing_objs( const std::string &header,
                                                const std::vector< std::vector<T> > &objs );

@@ -1,5 +1,8 @@
+#pragma once
 #ifndef ITEM_GROUP_H
 #define ITEM_GROUP_H
+
+#include "json.h"
 
 #include <vector>
 #include <set>
@@ -8,7 +11,6 @@
 
 typedef std::string Item_tag;
 typedef std::string Group_tag;
-class JsonObject;
 class item;
 
 namespace item_group {
@@ -76,6 +78,7 @@ namespace item_group {
      * used as subtype of the new item group and the array is loaded like the "entries" array of
      * a item group definition (see format of item groups).
      *
+     * @param stream Stream to load from
      * @param default_subtype If an inlined item group is loaded this is used as the default
      * subtype. It must be either "distribution" or "collection". See @ref Item_group.
      * @throw std::string as usual for JSON errors, including invalid input values.
@@ -98,7 +101,8 @@ class Item_spawn_data
         /**
          * Create a list of items. The create list might be empty.
          * No item of it will be the null item.
-         * @param birthday All items have that value as birthday.
+         * @param[in] birthday All items have that value as birthday.
+         * @param[out] rec Recursion list, output goes here
          */
         virtual ItemList create(int birthday, RecursionList &rec) const = 0;
         ItemList create(int birthday) const;
@@ -144,11 +148,8 @@ class Item_modifier
          */
         std::pair<long, long> charges;
         /**
-         * Ammo for guns. If NULL the gun spawns
-         * without ammo.
-         * This does not take @ref charges into count. Instead it
-         * assumes that the item returned by that Single_item_creator
-         * contains the charges.
+         * Ammo for guns. If NULL the gun spawns without ammo.
+         * This takes @ref charges and @ref with_ammo into account.
          */
         std::unique_ptr<Item_spawn_data> ammo;
         /**
@@ -172,6 +173,13 @@ class Item_modifier
         void modify(item &it) const;
         void check_consistency() const;
         bool remove_item(const Item_tag &itemid);
+
+        // Currently these always have the same chance as the item group it's part of, but
+        // theoretically it could be defined per-item / per-group.
+        /** Chance [0-100%] for items to spawn with ammo (plus default magazine if necesssary) */
+        int with_ammo;
+        /** Chance [0-100%] for items to spawn with their default magazine (if any) */
+        int with_magazine;
 };
 /**
  * Basic item creator. It contains either the item id directly,
@@ -206,6 +214,8 @@ class Single_item_creator : public Item_spawn_data
         Type type;
         std::unique_ptr<Item_modifier> modifier;
 
+        void inherit_ammo_mag_chances( const int ammo, const int mag );
+
         virtual ItemList create(int birthday, RecursionList &rec) const override;
         item create_single(int birthday, RecursionList &rec) const override;
         void check_consistency() const override;
@@ -226,7 +236,7 @@ class Item_group : public Item_spawn_data
             G_DISTRIBUTION
         } Type;
 
-        Item_group(Type type, int probability);
+        Item_group( Type type, int probability, int ammo_chance, int magazine_chance );
         ~Item_group() override;
 
         const Type type;
@@ -242,6 +252,11 @@ class Item_group : public Item_spawn_data
 
         void add_item_entry(const Item_tag &itemid, int probability);
         void add_group_entry(const Group_tag &groupid, int probability);
+        /**
+         * Once the relevant data has been read from JSON, this function is always called (either from
+         * @ref Item_factory::add_entry, @ref add_item_entry or @ref add_group_entry). Its purpose is to add
+         * a Single_item_creator or Item_group to @ref items.
+         */
         void add_entry(std::unique_ptr<Item_spawn_data> &ptr);
 
         virtual ItemList create(int birthday, RecursionList &rec) const override;
@@ -250,10 +265,15 @@ class Item_group : public Item_spawn_data
         bool remove_item(const Item_tag &itemid) override;
         bool has_item(const Item_tag &itemid) const override;
 
-        /** Chance [0-100%] for items to spawn with ammo (plus default magazine if necesssary) */
-        int with_ammo = 0;
-        /** Chance [0-100%] for items to spawn with their default magazine (if any) */
-        int with_magazine = 0;
+        /**
+         * These aren't directly used. Instead, the values (both with a default value of 0) "trickle down"
+         * to apply to every item/group entry within this item group. It's added to the
+         * @ref Single_item_creator's @ref Item_modifier via @ref Single_item_creator::inherit_ammo_mag_chances()
+         */
+        /** Every item in this group has this chance [0-100%] for items to spawn with ammo (plus default magazine if necesssary) */
+        const int with_ammo;
+        /** Every item in this group has this chance [0-100%] for items to spawn with their default magazine (if any) */
+        const int with_magazine;
 
     protected:
         /**

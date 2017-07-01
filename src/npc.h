@@ -1,3 +1,4 @@
+#pragma once
 #ifndef NPC_H
 #define NPC_H
 
@@ -16,11 +17,13 @@ class player;
 class field_entry;
 class npc_class;
 class auto_pickup;
+class monfaction;
 struct mission_type;
 enum game_message_type : int;
 
 using npc_class_id = string_id<npc_class>;
 using mission_type_id = string_id<mission_type>;
+using mfaction_id = int_id<monfaction>;
 
 void parse_tags( std::string &phrase, const player &u, const npc &me );
 
@@ -358,80 +361,6 @@ enum talk_topic_enum {
  TALK_SCAVENGER_MERC_HIRE,
  TALK_SCAVENGER_MERC_HIRE_SUCCESS,
 
- TALK_OLD_GUARD_SOLDIER,//98, Generic Old Guard
-
- TALK_OLD_GUARD_NEC_CPT,//99, Main mission source in Necropolis
- TALK_OLD_GUARD_NEC_CPT_GOAL,
- TALK_OLD_GUARD_NEC_CPT_VAULT,
-
- TALK_OLD_GUARD_NEC_COMMO,//102, Mission source/destination in Necropolis
- TALK_OLD_GUARD_NEC_COMMO_GOAL,
- TALK_OLD_GUARD_NEC_COMMO_FREQ,
-
- TALK_RANCH_FOREMAN,//105, Mission source/critical to building up the ranch camp
- TALK_RANCH_FOREMAN_PROSPECTUS,
- TALK_RANCH_FOREMAN_OUTPOST,
- TALK_RANCH_FOREMAN_REFUGEES,
- TALK_RANCH_FOREMAN_JOB,
-
- TALK_RANCH_CONSTRUCTION_1,//110
-
- TALK_RANCH_CONSTRUCTION_2,//111
- TALK_RANCH_CONSTRUCTION_2_JOB,
- TALK_RANCH_CONSTRUCTION_2_HIRE,
-
- TALK_RANCH_WOODCUTTER,//114
- TALK_RANCH_WOODCUTTER_JOB,
- TALK_RANCH_WOODCUTTER_HIRE,
-
- TALK_RANCH_WOODCUTTER_2,//117
- TALK_RANCH_WOODCUTTER_2_JOB,
- TALK_RANCH_WOODCUTTER_2_HIRE,
-
- TALK_RANCH_FARMER_1,//120
- TALK_RANCH_FARMER_1_JOB,
- TALK_RANCH_FARMER_1_HIRE,
-
- TALK_RANCH_FARMER_2,//123
- TALK_RANCH_FARMER_2_JOB,
- TALK_RANCH_FARMER_2_HIRE,
-
- TALK_RANCH_CROP_OVERSEER,//126
- TALK_RANCH_CROP_OVERSEER_JOB,
-
- TALK_RANCH_ILL_1,//128
- TALK_RANCH_ILL_1_JOB,
- TALK_RANCH_ILL_1_HIRE,
- TALK_RANCH_ILL_1_SICK,
-
- TALK_RANCH_NURSE,//132
- TALK_RANCH_NURSE_JOB,
- TALK_RANCH_NURSE_HIRE,
- TALK_RANCH_NURSE_AID,
- TALK_RANCH_NURSE_AID_DONE,
-
- TALK_RANCH_DOCTOR,//137
-
- TALK_RANCH_SCRAPPER,//138
- TALK_RANCH_SCRAPPER_JOB,
- TALK_RANCH_SCRAPPER_HIRE,
-
- TALK_RANCH_SCAVENGER_1,//141
- TALK_RANCH_SCAVENGER_1_JOB,
- TALK_RANCH_SCAVENGER_1_HIRE,
-
- TALK_RANCH_BARKEEP,//144
- TALK_RANCH_BARKEEP_JOB,
- TALK_RANCH_BARKEEP_INFORMATION,
- TALK_RANCH_BARKEEP_TAP,
-
- TALK_RANCH_BARBER,//148
- TALK_RANCH_BARBER_JOB,
- TALK_RANCH_BARBER_HIRE,
- TALK_RANCH_BARBER_CUT,
-
- TALK_RANCH_STOCKS_BANDAGES,
-
  TALK_SHELTER,
  TALK_SHELTER_PLANS,
  TALK_SHARE_EQUIPMENT,
@@ -511,7 +440,7 @@ struct npc_chatbin : public JsonSerializer, public JsonDeserializer
     /**
      * The skill this NPC offers to train.
      */
-    skill_id skill = skill_id( NULL_ID );
+    skill_id skill = skill_id::NULL_ID();
     /**
      * The martial art style this NPC offers to train.
      */
@@ -548,26 +477,32 @@ public:
 
  static void load_npc(JsonObject &jsobj);
  npc* find_npc(std::string ident);
- void load_npc_template(std::string ident);
+ void load_npc_template( const std::string &ident );
 
     // Generating our stats, etc.
-    void randomize( const npc_class_id &type = NULL_ID );
+    void randomize( const npc_class_id &type = npc_class_id::NULL_ID() );
  void randomize_from_faction(faction *fac);
  void set_fac(std::string fac_name);
     /**
-     * Set @ref mapx and @ref mapx and @ref pos.
+     * Set @ref submap_coords and @ref pos.
      * @param mx,my,mz are global submap coordinates.
      * This function also adds the npc object to the overmap.
      */
-    void spawn_at(int mx, int my, int mz);
+    void spawn_at_sm(int mx, int my, int mz);
     /**
-     * Calls @ref spawn_at, spawns in a random city in
+     * As spawn_at, but also sets position within the submap.
+     * Note: final submap may differ from submap_offset if @ref square has
+     * x/y values outside [0, SEEX-1]/[0, SEEY-1] range.
+     */
+    void spawn_at_precise( const point &submap_offset, const tripoint &square );
+    /**
+     * Calls spawn_at, spawns in a random city in
      * the given overmap on z-level 0.
      */
     void spawn_at_random_city(overmap *o);
     /**
      * Places the NPC on the @ref map. This update its
-     * posx,posy and mapx,mapy values to fit the current offset of
+     * pos values to fit the current offset of
      * map (g->levx, g->levy).
      * If the square on the map where the NPC would go is not empty
      * a spiral search for an empty square around it is performed.
@@ -608,6 +543,12 @@ public:
  bool turned_hostile() const; // True if our anger is at least equal to...
  int hostile_anger_level() const; // ... this value!
  void make_angry(); // Called if the player attacks us
+     /*
+     * Angers and makes the NPC consider the creature an attacker
+     * if the creature is a player and the NPC is not already hostile
+     * towards the player.
+     */
+    void on_attacked( const Creature &attacker );
  int assigned_missions_value();
     /**
      * @return Skills of which this NPC has a higher level than the given player. In other
@@ -627,7 +568,12 @@ public:
     bool is_guarding() const;
     /** Trusts you a lot. */
     bool is_minion() const;
+    /** Is enemy or will turn into one (can't be convinced not to attack). */
+    bool guaranteed_hostile() const;
         Attitude attitude_to( const Creature &other ) const override;
+
+        /** For mutant NPCs. Returns how monsters perceive said NPC. Doesn't imply NPC sees them the same. */
+        mfaction_id get_monster_faction() const;
 // What happens when the player makes a request
  int  follow_distance() const; // How closely do we follow the player?
 
@@ -711,7 +657,7 @@ public:
     double confidence_mult() const;
     int confident_shoot_range( const item &it ) const;
     int confident_gun_mode_range( const item::gun_mode &gun, int at_recoil = -1 ) const;
-    int confident_throw_range( const item & ) const;
+    int confident_throw_range( const item &, Creature * ) const;
     bool wont_hit_friend( const tripoint &p, const item &it, bool throwing ) const;
     bool enough_time_to_reload( const item &gun ) const;
     /** Can reload currently wielded gun? */
@@ -731,6 +677,7 @@ public:
 // Physical movement from one tile to the next
     /**
      * Tries to find path to p. If it can, updates path to it.
+     * @param p Destination of pathing
      * @param no_bashing Don't allow pathing through tiles that require bashing.
      * @param force If there is no valid path, empty the current path.
      * @returns If it updated the path.
@@ -743,6 +690,10 @@ public:
  void move_away_from( const tripoint &p, bool no_bashing = false );
  void move_pause(); // Same as if the player pressed '.'
 
+    const pathfinding_settings &get_pathfinding_settings() const override;
+    const pathfinding_settings &get_pathfinding_settings( bool no_bashing ) const;
+    std::set<tripoint> get_path_avoid() const override;
+
 // Item discovery and fetching
  void find_item  (); // Look around and pick an item
  void pick_up_item (); // Move to, or grab, our targeted item
@@ -753,6 +704,7 @@ public:
     std::list<item> pick_up_item_vehicle( vehicle &veh, int part_index );
 
     bool has_item_whitelist() const;
+    bool item_name_whitelisted( const std::string &name );
     bool item_whitelisted( const item &it );
 
     /** Returns true if it finds one. */
@@ -781,24 +733,32 @@ public:
     void guard_current_pos();
 
  //message related stuff
- void add_msg_if_npc(const char* msg, ...) const override;
- void add_msg_player_or_npc(const char* player_str, const char* npc_str, ...) const override;
- void add_msg_if_npc(game_message_type type, const char* msg, ...) const override;
- void add_msg_player_or_npc(game_message_type type, const char* player_str, const char* npc_str, ...) const override;
- void add_msg_if_player(const char *, ...) const override{};
- void add_msg_if_player(game_message_type, const char *, ...) const override{};
- void add_memorial_log(const char*, const char*, ...) override {};
+ void add_msg_if_npc(const char* msg, ...) const override PRINTF_LIKE( 2, 3 );
+ void add_msg_player_or_npc(const char* player_str, const char* npc_str, ...) const override PRINTF_LIKE( 3, 4 );
+ void add_msg_if_npc(game_message_type type, const char* msg, ...) const override PRINTF_LIKE( 3, 4 );
+ void add_msg_player_or_npc(game_message_type type, const char* player_str, const char* npc_str, ...) const override PRINTF_LIKE( 4, 5 );
+ void add_msg_if_player(const char *, ...) const override PRINTF_LIKE( 2, 3 ) {};
+ void add_msg_if_player(game_message_type, const char *, ...) const override PRINTF_LIKE( 3, 4 ) {};
+ void add_memorial_log(const char*, const char*, ...) override  PRINTF_LIKE( 3, 4 ) {};
  virtual void add_miss_reason(const char *, unsigned int) {};
-    void add_msg_player_or_say( const char *, const char *, ... ) const override;
-    void add_msg_player_or_say( game_message_type, const char *, const char *, ... ) const override;
+ void add_msg_player_or_say( const char *, const char *, ... ) const override PRINTF_LIKE( 3, 4 );
+ void add_msg_player_or_say( game_message_type, const char *, const char *, ... ) const override PRINTF_LIKE( 4, 5 );
 
 // The preceding are in npcmove.cpp
 
-    bool query_yn( const char *mes, ... ) const override;
+ bool query_yn( const char *mes, ... ) const override PRINTF_LIKE( 2, 3 );
+ 
+    std::string extended_description() const override;
 
     // Note: NPCs use a different speed rating than players
     // Because they can't run yet
     float speed_rating() const override;
+
+    /**
+     * Note: this places NPC on a given position in CURRENT MAP coords.
+     * Do not use when placing a NPC in mapgen.
+     */
+    void setpos( const tripoint &pos ) override;
 
 // #############   VALUES   ################
 
@@ -809,14 +769,14 @@ public:
 
 private:
     /**
-     * Global submap coordinates of the npc (minus the position on the map:
-     * posx,posy). Use global_*_location to get the global position.
-     * You should not change mapx,mapy directly, use posx,posy instead,
-     * @ref shift will update mapx,mapy and move the npc to a different
+     * Global submap coordinates of the submap containing the npc.
+     * Use global_*_location to get the global position.
+     * You should not change submap_coords directly, use pos instead,
+     * @ref shift will update submap_coords and move the npc to a different
      * overmap if needed.
-     * (mapx,mapy) defines the overmap the npc is stored on.
+     * submap_coords defines the overmap the npc is stored on.
      */
-    int mapx, mapy;
+    point submap_coords;
     // Type of complaint->last time we complainted about this type
     std::map<std::string, int> complaints;
 
@@ -830,15 +790,15 @@ public:
      *
      * The (global) position of an NPC is always:
      * point(
-     *     mapx * SEEX + posx,
-     *     mapy * SEEY + posy,
+     *     submap_coords.x * SEEX + posx() % SEEX,
+     *     submap_coords.y * SEEY + posy() % SEEY,
      *     pos.z)
      * (Expressed in map squares, the system that @ref map uses.)
      * Any of om, map, pos can be in any range.
      * For active NPCs pos would be in the valid range required by
      * the map. But pos, map, and om can be changed without the NPC
      * actual moving as long as the position stays the same:
-     * posx += SEEX; mapx -= 1;
+     * pos() += SEEX; submap_coords.x -= 1;
      * This does not change the global position of the NPC.
      */
     tripoint global_square_location() const override;
@@ -870,7 +830,6 @@ public:
 // Personality & other defining characteristics
  std::string fac_id; // A temp variable used to inform the game which faction to link
  faction *my_fac;
- std::string companion_mission;
  int companion_mission_time;
  npc_mission mission;
  npc_personality personality;
@@ -894,6 +853,13 @@ public:
      */
     void on_load();
 
+        /// Set up (start) a companion mission.
+        void set_companion_mission( npc &p, const std::string &id );
+        /// Unset a companion mission. Precondition: `!has_companion_mission()`
+        void reset_companion_mission();
+        bool has_companion_mission() const;
+        std::string get_companion_mission() const;
+
     protected:
         void store(JsonOut &jsout) const;
         void load(JsonObject &jsin);
@@ -904,6 +870,8 @@ private:
 
     bool sees_dangerous_field( const tripoint &p ) const;
     bool could_move_onto( const tripoint &p ) const;
+
+        std::string companion_mission;
 };
 
 /** An NPC with standard stats */

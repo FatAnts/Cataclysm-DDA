@@ -2,6 +2,7 @@
 #include "debug.h"
 #include "json.h"
 #include "item.h"
+#include "translations.h"
 
 #include <unordered_map>
 
@@ -19,19 +20,18 @@ ammo_map_t &all_ammunition_types()
 void ammunition_type::load_ammunition_type( JsonObject &jsobj )
 {
     ammunition_type &res = all_ammunition_types()[ ammotype( jsobj.get_string( "id" ) ) ];
-    res.name_             = jsobj.get_string( "name" );
+    res.name_             = _( jsobj.get_string( "name" ).c_str() );
     res.default_ammotype_ = jsobj.get_string( "default" );
 }
 
-template<>
-const string_id<ammunition_type> string_id<ammunition_type>::NULL_ID( "NULL" );
-
+/** @relates string_id */
 template<>
 bool string_id<ammunition_type>::is_valid() const
 {
     return all_ammunition_types().count( *this ) > 0;
 }
 
+/** @relates string_id */
 template<>
 ammunition_type const &string_id<ammunition_type>::obj() const
 {

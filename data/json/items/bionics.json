@@ -196,7 +196,7 @@
     "copy-from": "bionic_general",
     "type": "BIONIC_ITEM",
     "name": "Close Quarters Battle CBM",
-    "description": "Databanks and processors loaded with extensive martial arts combat programs are integrated directly into your spinal column.  Whilst active, you become deadly in hand-to-hand.",
+    "description": "Databanks and processors loaded with extensive martial arts combat programs are integrated directly into your spinal column.  While active, your close combat skills are superseded by the machine's programming.  You have the option of activating Karate, Judo, Muay Thai, or Bio Combatives algorithms.  The cybernetic disconnect prevents you from improving the affected combat skills while this bionic is active.  However, with extended use in combat, it is possible to learn the chosen martial art.",
     "price": 220000,
     "difficulty": 8
   },
@@ -268,7 +268,7 @@
     "copy-from": "bionic_general",
     "type": "BIONIC_ITEM",
     "name": "Telescopic Eyes CBM",
-    "description": "Much of the material in your inner eye has been removed and replaced with an array of high-powered, auto-focusing lenses.  You can now see much farther and more clearer than before, any vision problems you might have had are now gone.",
+    "description": "Much of the material in your inner eye has been removed and replaced with an array of high-powered, auto-focusing lenses.  You can now see much farther and more clearly than before, any vision problems you might have had are now gone.",
     "price": 500000,
     "difficulty": 5
   },
@@ -412,7 +412,7 @@
     "copy-from": "bionic_general",
     "type": "BIONIC_ITEM",
     "name": "Leukocyte Breeder System CBM",
-    "description": "You are equipped with bionic stimulators which augment your haematopoiesis system, allowing you to accelerate white blood cell production using bionic power.  It is supposed to run continously and may cause unpleasant side effects when turned off.",
+    "description": "You are equipped with bionic stimulators which augment your haematopoiesis system, allowing you to accelerate white blood cell production using bionic power.  It is supposed to run continuously and may cause unpleasant side effects when turned off.",
     "price": 6000,
     "difficulty": 7
   },
@@ -466,7 +466,7 @@
     "copy-from": "bionic_general",
     "type": "BIONIC_ITEM",
     "name": "Metabolic Interchange CBM",
-    "description": "Your digestive system and power supply are interconnected.  Any drain on energy instead increases your hunger.  Can be toggled on and off at will.",
+    "description": "Your digestive system and power supply are interconnected.  Energy drains will be regularly counteracted by increasing hunger.  Can be toggled on and off at will.",
     "price": 70000,
     "difficulty": 4
   },
@@ -719,7 +719,7 @@
     "copy-from": "bionic_general",
     "type": "BIONIC_ITEM",
     "name": "Internal Storage CBM",
-    "description": "Space inside your chest cavity has been converted into a storage area.  You may carry an extra 8 units of volume.",
+    "description": "Space inside your chest cavity has been converted into a storage area.  You may carry an extra 2 liters of volume.",
     "price": 400000,
     "difficulty": 7
   },

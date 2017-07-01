@@ -1,4 +1,7 @@
 #include "mondefense.h"
+
+#include "ballistics.h"
+#include "dispersion.h"
 #include "monster.h"
 #include "creature.h"
 #include "damage.h"
@@ -68,7 +71,7 @@ void mdefense::acidsplash( monster &m, Creature *const source,
     size_t num_drops = rng( 4, 6 );
     player const *const foe = dynamic_cast<player *>( source );
     if( proj == nullptr && foe != nullptr ) {
-        if( foe->weapon.is_cutting_weapon() ) {
+        if( foe->weapon.is_melee( DT_CUT ) || foe->weapon.is_melee( DT_STAB ) ) {
             num_drops += rng( 3, 4 );
         }
 
@@ -102,7 +105,7 @@ void mdefense::acidsplash( monster &m, Creature *const source,
     prj.impact.add_damage( DT_ACID, rng( 1, 3 ) );
     for( size_t i = 0; i < num_drops; i++ ) {
         const tripoint &target = random_entry( pts );
-        m.projectile_attack( prj, target, 1200 );
+        projectile_attack( prj, m.pos(), target, { 1200 } );
     }
 
     if( g->u.sees( m.pos() ) ) {

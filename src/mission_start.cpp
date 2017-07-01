@@ -142,6 +142,21 @@ void mission_start::infect_npc( mission *miss )
     p->guard_current_pos();
 }
 
+void mission_start::need_drugs_npc( mission *miss )
+{
+    npc *p = g->find_npc( miss->npc_id );
+    if( p == NULL ) {
+        debugmsg( "mission_start::need_drugs_npc() couldn't find an NPC!" );
+        return;
+    }
+    // make sure they don't have any item goal
+    p->remove_items_with( [&]( const item & it ) {
+        return it.typeId() == miss->item_id;
+    } );
+    // Make sure they stay here
+    p->guard_current_pos();
+}
+
 void mission_start::place_dog( mission *miss )
 {
     const tripoint house = random_house_in_closest_city();
@@ -288,7 +303,7 @@ void mission_start::place_bandit_camp( mission *miss )
     // Ideally this would happen at the end of the mission
     // (you're told that they entered your image into the databases, etc)
     // but better to get it working.
-    g->u.set_mutation( "PROF_FED" );
+    g->u.set_mutation( trait_id( "PROF_FED" ) );
 
     tripoint site = target_om_ter_random( "bandit_camp_1", 1, miss, false, 50 );
     tinymap bay1;
@@ -348,7 +363,8 @@ void mission_start::kill_horde_master( mission *miss )
     tile.add_spawn( mon_zombie_master, 1, SEEX, SEEY, false, -1, miss->uid, "Demonic Soul" );
     tile.add_spawn( mon_zombie_brute, 3, SEEX, SEEY );
     tile.add_spawn( mon_zombie_dog, 3, SEEX, SEEY );
-    if( SEEX > 1 && SEEX < OMAPX && SEEY > 1 && SEEY < OMAPY ) {
+
+    if( overmap::inbounds( SEEX, SEEY, 0, 1 ) ) {
         for( int x = SEEX - 1; x <= SEEX + 1; x++ ) {
             for( int y = SEEY - 1; y <= SEEY + 1; y++ ) {
                 tile.add_spawn( mon_zombie, rng( 3, 10 ), x, y );
@@ -608,9 +624,7 @@ void mission_start::recruit_tracker( mission *miss )
     temp->normalize();
     temp->randomize( NC_COWBOY );
     // NPCs spawn with submap coordinates, site is in overmap terrain coords
-    temp->spawn_at( site.x * 2, site.y * 2, site.z );
-    temp->setx( 11 );
-    temp->sety( 11 );
+    temp->spawn_at_precise( { site.x * 2, site.y * 2 }, tripoint( 11, 11, site.z ) );
     temp->attitude = NPCATT_TALK;
     temp->mission = NPC_MISSION_SHOPKEEP;
     temp->personality.aggression -= 1;
@@ -634,7 +648,7 @@ void mission_start::start_commune(mission *miss)
  bay.place_npc(SEEX-3, SEEY+5, "ranch_construction_1");
  bay.save();
  npc *p = g->find_npc( miss->npc_id );
- p->set_mutation( "NPC_MISSION_LEV_1" );
+ p->set_mutation( trait_id( "NPC_MISSION_LEV_1" ) );
 }
 
 const int RANCH_SIZE = 5;
@@ -1540,7 +1554,7 @@ void mission_start::ranch_bartender_1(mission *miss)
 {
  npc *p = g->find_npc( miss->npc_id );
  p->my_fac->wealth += rng(500,2500);
- p->set_mutation( "NPC_BRANDY" );
+ p->set_mutation( trait_id( "NPC_BRANDY" ) );
 
  tripoint site = target_om_ter_random("ranch_camp_51", 1, miss, false, RANCH_SIZE);
  tinymap bay;
@@ -1562,7 +1576,7 @@ void mission_start::ranch_bartender_2(mission *miss)
 {
  npc *p = g->find_npc( miss->npc_id );
  p->my_fac->wealth += rng(500,2500);
- p->set_mutation( "NPC_RUM" );
+ p->set_mutation( trait_id( "NPC_RUM" ) );
 
  tripoint site = target_om_ter_random("ranch_camp_51", 1, miss, false, RANCH_SIZE);
  tinymap bay;
@@ -1586,7 +1600,7 @@ void mission_start::ranch_bartender_3(mission *miss)
 {
  npc *p = g->find_npc( miss->npc_id );
  p->my_fac->wealth += rng(500,2500);
- p->set_mutation( "NPC_WHISKEY" );
+ p->set_mutation( trait_id( "NPC_WHISKEY" ) );
 
  tripoint site = target_om_ter_random("ranch_camp_51", 1, miss, false, RANCH_SIZE);
  tinymap bay;
@@ -1625,4 +1639,112 @@ void mission_start::ranch_bartender_4(mission *miss)
 
 void mission_start::place_book( mission *)
 {
+}
+
+const tripoint reveal_destination( const std::string &type )
+{
+    const tripoint your_pos = g->u.global_omt_location();
+    const tripoint center_pos = overmap_buffer.find_random( your_pos, type, rng( 40, 80 ), false );
+
+    if( center_pos != overmap::invalid_tripoint ) {
+        overmap_buffer.reveal( center_pos, 2 );
+        return center_pos;
+    }
+
+    return overmap::invalid_tripoint;
+}
+
+void reveal_route( mission *miss, const tripoint destination )
+{
+    const npc *p = g->find_npc( miss->get_npc_id() );
+    if( p == nullptr ) {
+        debugmsg( "mission_start::infect_npc() couldn't find an NPC!" );
+        return;
+    }
+
+    const tripoint source = g->u.global_omt_location();
+
+    const tripoint source_road = overmap_buffer.find_closest( source, "road", 3, false );
+    const tripoint dest_road = overmap_buffer.find_closest( destination, "road", 3, false );
+
+    if( overmap_buffer.reveal_route( source_road, dest_road ) ) {
+        add_msg( _( "%s marks as well the road that leads to it..." ),
+                 p->name.c_str() );
+    }
+}
+
+void reveal_target( mission *miss, const std::string &omter_id )
+{
+    const npc *p = g->find_npc( miss->get_npc_id() );
+    if( p == nullptr ) {
+        debugmsg( "mission_start::infect_npc() couldn't find an NPC!" );
+        return;
+    }
+
+    const tripoint destination = reveal_destination( omter_id );
+    if( destination != overmap::invalid_tripoint ) {
+        const oter_id oter = overmap_buffer.ter( destination );
+        add_msg( _( "%s have marked the only %s known to them on your map." ),
+                 p->name.c_str(), oter->get_name().c_str() );
+        miss->set_target( destination );
+        if( one_in( 3 ) ) {
+            reveal_route( miss, destination );
+        }
+    }
+}
+
+void reveal_any_target( mission *miss, const std::vector<std::string> &omter_ids )
+{
+    reveal_target( miss, random_entry( omter_ids ).c_str() );
+}
+
+void mission_start::reveal_weather_station( mission *miss )
+{
+    reveal_target( miss, "station_radio" );
+}
+
+void mission_start::reveal_office_tower( mission *miss )
+{
+    reveal_target( miss, "office_tower_1" );
+}
+
+void mission_start::reveal_doctors_office( mission *miss )
+{
+    reveal_any_target( miss, { "office_doctor", "hospital" } );
+}
+
+void mission_start::reveal_cathedral( mission *miss )
+{
+    reveal_any_target( miss, { "cathedral_1", "museum" } );
+}
+
+void mission_start::reveal_refugee_center( mission *miss )
+{
+    const tripoint your_pos = g->u.global_omt_location();
+    const tripoint center_pos = overmap_buffer.find_closest( your_pos, "evac_center_18", 0, false );
+
+    if( center_pos == overmap::invalid_tripoint ) {
+        add_msg( _( "You don't know where the address could be..." ) );
+        return;
+    }
+
+    miss->set_target( center_pos );
+
+    if( overmap_buffer.seen( center_pos.x, center_pos.y, center_pos.z ) ) {
+        add_msg( _( "You already know that address..." ) );
+        return;
+    }
+
+    add_msg( _( "It takes you forever to find the address on your map..." ) );
+
+    overmap_buffer.reveal( center_pos, 3 );
+
+    const tripoint source_road = overmap_buffer.find_closest( your_pos, "road", 3, false );
+    const tripoint dest_road = overmap_buffer.find_closest( center_pos, "road", 3, false );
+
+    if( overmap_buffer.reveal_route( source_road, dest_road, 1, true ) ) {
+        add_msg( _( "You mark the refugee center and the road that leads to it..." ) );
+    } else {
+        add_msg( _( "You mark the refugee center, but you have no idea how to get there by road..." ) );
+    }
 }

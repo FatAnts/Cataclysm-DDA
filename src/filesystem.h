@@ -1,3 +1,4 @@
+#pragma once
 #ifndef CATA_FILE_SYSTEM_H
 #define CATA_FILE_SYSTEM_H
 
@@ -9,8 +10,14 @@ bool file_exist( const std::string &path );
 // Remove a file, does not remove folders,
 // returns true on success
 bool remove_file( const std::string &path );
+bool remove_directory( const std::string &path );
 // Rename a file, overriding the target!
 bool rename_file( const std::string &old_path, const std::string &new_path );
+
+namespace cata_files
+{
+const char *eol();
+}
 
 //--------------------------------------------------------------------------------------------------
 /**

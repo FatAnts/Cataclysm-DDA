@@ -17,6 +17,7 @@
 #include "options.h"
 #include "overmapbuffer.h"
 #include "player.h"
+#include "npc.h"
 #include "catacharset.h"
 #include "itype.h"
 #include "vehicle.h"
@@ -51,7 +52,7 @@ static minimap_shared_texture_pool tex_pool;
 SDL_Color cursesColorToSDL(int color);
 
 static const std::string empty_string;
-static const std::string TILE_CATEGORY_IDS[] = {
+static const std::array<std::string, 12> TILE_CATEGORY_IDS = {{
     "", // C_NONE,
     "vehicle_part", // C_VEHICLE_PART,
     "terrain", // C_TERRAIN,
@@ -64,7 +65,7 @@ static const std::string TILE_CATEGORY_IDS[] = {
     "bullet", // C_BULLET,
     "hit_entity", // C_HIT_ENTITY,
     "weather", // C_WEATHER,
-};
+}};
 
 // Operator overload required to leverage unique_ptr API.
 void SDL_Texture_deleter::operator()( SDL_Texture *const ptr )
@@ -963,11 +964,12 @@ void cata_tiles::draw( int destx, int desty, const tripoint &center, int width, 
 
             draw_points.push_back( tile_render_info( tripoint( x, y, center.z ), height_3d ) );
         }
-	const decltype (&cata_tiles::draw_furniture) drawing_layers[]={
-			 &cata_tiles::draw_furniture, &cata_tiles::draw_trap,
-                        &cata_tiles::draw_field_or_item, &cata_tiles::draw_vpart,
-                        &cata_tiles::draw_vpart_below, &cata_tiles::draw_terrain_below,
-                        &cata_tiles::draw_critter_at };
+        const std::array<decltype ( &cata_tiles::draw_furniture ), 7> drawing_layers = {{
+            &cata_tiles::draw_furniture, &cata_tiles::draw_trap,
+            &cata_tiles::draw_field_or_item, &cata_tiles::draw_vpart,
+            &cata_tiles::draw_vpart_below, &cata_tiles::draw_terrain_below,
+            &cata_tiles::draw_critter_at
+        }};
         // for each of the drawing layers in order, back to front ...
         for( auto f : drawing_layers ) {
             // ... draw all the points we drew terrain for, in the same order
@@ -1379,8 +1381,8 @@ void cata_tiles::draw_minimap( int destx, int desty, const tripoint &center, int
                             }
                         }
                         draw_rhombus(
-                            destx + minimap_border_width + x * minimap_tile_size.x,
-                            desty + minimap_border_height + y * minimap_tile_size.y,
+                            destx + minimap_border_width + x * minimap_tile_size.x + minimap_tile_size.x / 2,
+                            desty + minimap_border_height + y * minimap_tile_size.y + minimap_tile_size.y / 2,
                             minimap_tile_size.x,
                             c,
                             width,
@@ -1489,7 +1491,7 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
                 col = mt.color;
             }
         } else if (category == C_VEHICLE_PART) {
-            const vpart_str_id vpid( id.substr( 3 ) );
+            const vpart_id vpid( id.substr( 3 ) );
             if( vpid.is_valid() ) {
                 const vpart_info &v = vpid.obj();
                 sym = v.sym;
@@ -1664,9 +1666,8 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
             }
             // NPC
             if( id.substr(4) == "npc_" ) {
-                const int nindex = g->npc_at( pos );
-                if( nindex != -1 ) {
-                    seed = nindex;
+                if( npc * const guy = g->critter_at<npc>( pos ) ) {
+                    seed = guy->getID();
                     break;
                 }
             }
@@ -2101,7 +2102,7 @@ bool cata_tiles::draw_vpart( const tripoint &p, lit_level ll, int &height_3d )
     // Gets the visible part, should work fine once tileset vp_ids are updated to work with the vehicle part json ids
     // get the vpart_id
     char part_mod = 0;
-    const vpart_str_id &vp_id = veh->part_id_string(veh_part, part_mod);
+    const vpart_id &vp_id = veh->part_id_string(veh_part, part_mod);
     const char sym = veh->face.dir_symbol(veh->part_sym(veh_part));
     std::string subcategory(1, sym);
 
@@ -2723,15 +2724,24 @@ void cata_tiles::get_tile_values(const int t, const int *tn, int &subtile, int &
 void cata_tiles::do_tile_loading_report() {
     DebugLog( D_INFO, DC_ALL ) << "Loaded tileset: " << get_option<std::string>( "TILES" );
 
+    if( !g->is_core_data_loaded() ) {
+        return; // There's nothing to do anymore without the core data.
+    }
+
     tile_loading_report<ter_t>( ter_t::count(), "Terrain", "" );
     tile_loading_report<furn_t>( furn_t::count(), "Furniture", "" );
-    //TODO: exclude fake items from Item_factory::init_old()
-    tile_loading_report(item_controller->get_all_itypes(), "Items", "");
+
+    std::map<itype_id, const itype *> items;
+    for( const itype *e : item_controller->all() ) {
+        items.emplace( e->get_id(), e );
+    }
+    tile_loading_report( items, "Items", "" );
+
     auto mtypes = MonsterGenerator::generator().get_all_mtypes();
     lr_generic( mtypes.begin(), mtypes.end(), []( const std::vector<mtype>::iterator &m ) {
         return ( *m ).id.str();
     }, "Monsters", "" );
-    tile_loading_report<vpart_info>(vpart_info::get_all().size(), "Vehicle Parts", "vp_");
+    tile_loading_report( vpart_info::all(), "Vehicle Parts", "vp_" );
     tile_loading_report<trap>(trap::count(), "Traps", "");
     tile_loading_report(fieldlist, num_fields, "Fields", "");
 

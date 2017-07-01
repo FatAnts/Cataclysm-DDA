@@ -7,6 +7,7 @@
 #include "inventory.h"
 #include "output.h"
 #include "player.h"
+#include "recipe.h"
 #include "requirements.h"
 #include "translations.h"
 #include "crafting.h"
@@ -79,9 +80,9 @@ void craft_command::execute()
         }
     }
 
-    auto activity = player_activity( is_long ? ACT_LONGCRAFT : ACT_CRAFT,
-                                     rec->batch_time( batch_size ),
-                                     -1, INT_MIN, rec->ident() );
+    auto type = activity_id( is_long ? "ACT_LONGCRAFT" : "ACT_CRAFT" );
+    auto activity = player_activity( type, crafter->time_to_craft( *rec, batch_size ), -1, INT_MIN,
+                                     rec->ident() );
     activity.values.push_back( batch_size );
 
     crafter->assign_activity( activity );
@@ -131,7 +132,7 @@ bool craft_command::query_continue( const std::vector<comp_selection<item_comp>>
 std::list<item> craft_command::consume_components()
 {
     std::list<item> used;
-    if( crafter->has_trait( "DEBUG_HS" ) ) {
+    if( crafter->has_trait( trait_id( "DEBUG_HS" ) ) ) {
         return used;
     }
 

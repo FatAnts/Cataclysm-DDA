@@ -64,79 +64,41 @@ static const std::unordered_map<std::string, vpart_bitflags> vpart_bitflag_map =
     { "ALTERNATOR", VPFLAG_ALTERNATOR },
     { "ENGINE", VPFLAG_ENGINE },
     { "FRIDGE", VPFLAG_FRIDGE },
-    { "FUEL_TANK", VPFLAG_FUEL_TANK },
     { "LIGHT", VPFLAG_LIGHT },
     { "WINDOW", VPFLAG_WINDOW },
     { "CURTAIN", VPFLAG_CURTAIN },
     { "CARGO", VPFLAG_CARGO },
     { "INTERNAL", VPFLAG_INTERNAL },
     { "SOLAR_PANEL", VPFLAG_SOLAR_PANEL },
-    { "VPFLAG_TRACK", VPFLAG_TRACK },
     { "RECHARGE", VPFLAG_RECHARGE },
-    { "VISION", VPFLAG_EXTENDS_VISION }
+    { "VISION", VPFLAG_EXTENDS_VISION },
+    { "ENABLED_DRAINS_EPOWER", VPFLAG_ENABLED_DRAINS_EPOWER },
 };
 
-std::map<vpart_str_id, vpart_info> vehicle_part_types;
-// Contains pointer into the vehicle_part_types map. It is an implicit mapping of int ids
-// to the matching vpart_info object. To store the object only once, it is in the map and only
-// linked to. Pointers here are always valid.
-std::vector<const vpart_info*> vehicle_part_int_types;
+static std::map<vpart_id, vpart_info> vpart_info_all;
 
-static std::map<vpart_str_id, vpart_info> abstract_parts;
+static std::map<vpart_id, vpart_info> abstract_parts;
 
-/**
- * JSON data dependent upon as-yet unparsed definitions
- * first: JSON data, second: source identifier
- */
-static std::list<std::pair<std::string, std::string>> deferred;
+static DynamicDataLoader::deferred_json deferred;
 
-template<>
-const vpart_str_id string_id<vpart_info>::NULL_ID( "null" );
-
-template<>
-const vpart_info &int_id<vpart_info>::obj() const
-{
-    if( static_cast<size_t>( _id ) >= vehicle_part_int_types.size() ) {
-        debugmsg( "invalid vehicle part id %d", _id );
-        static const vpart_info dummy{};
-        return dummy;
-    }
-    return *vehicle_part_int_types[_id];
-}
-
-template<>
-const string_id<vpart_info> &int_id<vpart_info>::id() const
-{
-    return obj().id;
-}
-
-template<>
-int_id<vpart_info> string_id<vpart_info>::id() const
-{
-    const auto iter = vehicle_part_types.find( *this );
-    if( iter == vehicle_part_types.end() ) {
-        debugmsg( "invalid vehicle part id %s", c_str() );
-        return vpart_id();
-    }
-    return iter->second.loadid;
-}
-
-template<>
-const vpart_info &string_id<vpart_info>::obj() const
-{
-    return id().obj();
-}
-
+/** @relates string_id */
 template<>
 bool string_id<vpart_info>::is_valid() const
 {
-    return vehicle_part_types.count( *this ) > 0;
+    return vpart_info_all.count( *this );
 }
 
+/** @relates string_id */
 template<>
-int_id<vpart_info>::int_id( const string_id<vpart_info> &id )
-: _id( id.id() )
+const vpart_info &string_id<vpart_info>::obj() const
 {
+    const auto found = vpart_info_all.find( *this );
+    if( found == vpart_info_all.end() ) {
+        debugmsg( "Tried to get invalid vehicle part: %s", c_str() );
+        static const vpart_info null_part{};
+        return null_part;
+    }
+    return found->second;
 }
 
 static void parse_vp_reqs( JsonObject &obj, const std::string &id, const std::string &key,
@@ -184,21 +146,22 @@ void vpart_info::load( JsonObject &jo, const std::string &src )
     vpart_info def;
 
     if( jo.has_string( "copy-from" ) ) {
-        auto const base = vehicle_part_types.find( vpart_str_id( jo.get_string( "copy-from" ) ) );
-        auto const ab = abstract_parts.find( vpart_str_id( jo.get_string( "copy-from" ) ) );
-        if( base != vehicle_part_types.end() ) {
+        auto const base = vpart_info_all.find( vpart_id( jo.get_string( "copy-from" ) ) );
+        auto const ab = abstract_parts.find( vpart_id( jo.get_string( "copy-from" ) ) );
+        if( base != vpart_info_all.end() ) {
             def = base->second;
         } else if( ab != abstract_parts.end() ) {
             def = ab->second;
         } else {
             deferred.emplace_back( jo.str(), src );
+            return;
         }
     }
 
     if( jo.has_string( "abstract" ) ) {
-        def.id = vpart_str_id( jo.get_string( "abstract" ) );
+        def.id = vpart_id( jo.get_string( "abstract" ) );
     } else {
-        def.id = vpart_str_id( jo.get_string( "id" ) );
+        def.id = vpart_id( jo.get_string( "id" ) );
     }
 
     assign( jo, "name", def.name_ );
@@ -209,6 +172,7 @@ void vpart_info::load( JsonObject &jo, const std::string &src )
     assign( jo, "power", def.power );
     assign( jo, "epower", def.epower );
     assign( jo, "fuel_type", def.fuel_type );
+    assign( jo, "default_ammo", def.default_ammo );
     assign( jo, "folded_volume", def.folded_volume );
     assign( jo, "size", def.size );
     assign( jo, "difficulty", def.difficulty );
@@ -261,23 +225,10 @@ void vpart_info::load( JsonObject &jo, const std::string &src )
     }
 
     if( jo.has_string( "abstract" ) ) {
-        abstract_parts[ def.id ] = def;
-        return;
-    }
-
-    auto const iter = vehicle_part_types.find( def.id );
-    if( iter != vehicle_part_types.end() ) {
-        // Entry in the map already exists, so the pointer in the vector is already correct
-        // and does not need to be changed, only the int-id needs to be taken from the old entry.
-        def.loadid = iter->second.loadid;
-        iter->second = def;
+        abstract_parts[def.id] = def;
     } else {
-        // The entry is new, "generate" a new int-id and link the new entry from the vector.
-        def.loadid = vpart_id( vehicle_part_int_types.size() );
-        vpart_info &new_entry = vehicle_part_types[ def.id ];
-        new_entry = def;
-        vehicle_part_int_types.push_back( &new_entry );
-    }    
+        vpart_info_all[def.id] = def;
+    }
 }
 
 void vpart_info::set_flag( const std::string &flag )
@@ -291,30 +242,9 @@ void vpart_info::set_flag( const std::string &flag )
 
 void vpart_info::finalize()
 {
-    auto& dyn = DynamicDataLoader::get_instance();
+    DynamicDataLoader::get_instance().load_deferred( deferred );
 
-    while( !deferred.empty() ) {
-        auto n = deferred.size();
-        auto it = deferred.begin();
-        for( decltype(deferred)::size_type idx = 0; idx != n; ++idx ) {
-            try {
-                std::istringstream str( it->first );
-                JsonIn jsin( str );
-                JsonObject jo = jsin.get_object();
-                dyn.load_object( jo, it->second );
-            } catch( const std::exception &err ) {
-                debugmsg( "Error loading data from json: %s", err.what() );
-            }
-            ++it;
-        }
-        deferred.erase( deferred.begin(), it );
-        if( deferred.size() == n ) {
-            debugmsg( "JSON contains circular dependency: discarded %i templates", n );
-            break;
-        }
-    }
-
-    for( auto& e : vehicle_part_types ) {
+    for( auto& e : vpart_info_all ) {
         // if part name specified ensure it is translated
         // otherwise the name of the base item will be used
         if( !e.second.name_.empty() ) {
@@ -329,7 +259,7 @@ void vpart_info::finalize()
             auto b = vpart_bitflag_map.find( f );
             if( b != vpart_bitflag_map.end() ) {
                 e.second.bitflags.set( b->second );
-            }            
+            }
         }
 
         // Calculate and cache z-ordering based off of location
@@ -380,7 +310,7 @@ void vpart_info::finalize()
 
 void vpart_info::check()
 {
-    for( auto &vp : vehicle_part_types ) {
+    for( auto &vp : vpart_info_all ) {
         auto &part = vp.second;
 
         // handle legacy parts without requirement data
@@ -413,6 +343,14 @@ void vpart_info::check()
                 part.install_reqs = { { requirement_id( "welding_standard" ), 5 } };
                 part.removal_reqs = { { requirement_id( "vehicle_weld_removal" ), 1 } };
                 part.repair_reqs  = { { requirement_id( "welding_standard" ), 5 } };
+            }
+
+        } else {
+            if( part.has_flag( "REVERSIBLE" ) ) {
+                if( !part.removal_reqs.empty() ) {
+                    debugmsg( "vehicle part %s specifies both REVERSIBLE and removal", part.id.c_str() );
+                }
+                part.removal_reqs = part.install_reqs;
             }
         }
 
@@ -498,16 +436,29 @@ void vpart_info::check()
         if( part.has_flag( "FOLDABLE" ) && part.folded_volume == 0 ) {
             debugmsg( "vehicle part %s has folding part with zero folded volume", part.name().c_str() );
         }
+        if( !item::type_is_defined( part.default_ammo ) ) {
+            debugmsg( "vehicle part %s has undefined default ammo %s", part.id.c_str(), part.item.c_str() );
+        }
         if( part.size < 0 ) {
             debugmsg( "vehicle part %s has negative size", part.id.c_str() );
-        }
-        if( part.has_flag( VPFLAG_FUEL_TANK ) && !item::type_is_defined( part.fuel_type ) ) {
-            debugmsg( "vehicle part %s is a fuel tank, but has invalid fuel type %s (not a valid item id)", part.id.c_str(), part.fuel_type.c_str() );
         }
         if( !item::type_is_defined( part.item ) ) {
             debugmsg( "vehicle part %s uses undefined item %s", part.id.c_str(), part.item.c_str() );
         }
-        if( part.has_flag( "TURRET" ) && !item::find_type( part.item )->gun ) {
+        const itype &base_item_type = *item::find_type( part.item );
+        // Fuel type errors are serious and need fixing now
+        if( !item::type_is_defined( part.fuel_type ) ) {
+            debugmsg( "vehicle part %s uses undefined fuel %s", part.id.c_str(), part.item.c_str() );
+            part.fuel_type = "null";
+        } else if( part.fuel_type != "null" && item::find_type( part.fuel_type )->fuel == nullptr &&
+                   ( base_item_type.container == nullptr || !base_item_type.container->watertight ) ) {
+            // Tanks are allowed to specify non-fuel "fuel",
+            // because currently legacy blazemod uses it as a hack to restrict content types
+            debugmsg( "non-tank vehicle part %s uses non-fuel item %s as fuel, setting to null",
+                      part.id.c_str(), part.fuel_type.c_str() );
+            part.fuel_type = "null";
+        }
+        if( part.has_flag( "TURRET" ) && base_item_type.gun == nullptr ) {
             debugmsg( "vehicle part %s has the TURRET flag, but is not made from a gun item", part.id.c_str() );
         }
         for( auto &q : part.qualities ) {
@@ -515,19 +466,35 @@ void vpart_info::check()
                 debugmsg( "vehicle part %s has undefined tool quality %s", part.id.c_str(), q.first.c_str() );
             }
         }
+        if( part.has_flag( VPFLAG_ENABLED_DRAINS_EPOWER ) && part.epower == 0 ) {
+            debugmsg( "%s is set to drain epower, but has epower == 0", part.id.c_str() );
+        }
+        // Parts with non-zero epower must have a flag that affects epower usage
+        static const std::vector<std::string> handled = {{
+            "ENABLED_DRAINS_EPOWER", "SECURITY", "ENGINE",
+            "ALTERNATOR", "SOLAR_PANEL", "POWER_TRANSFER",
+            "REACTOR"
+        }};
+        if( part.epower != 0 &&
+            std::none_of( handled.begin(), handled.end(), [&part]( const std::string &flag ) {
+            return part.has_flag( flag );
+        } ) ) {
+            std::string warnings_are_good_docs = enumerate_as_string( handled );
+            debugmsg( "%s has non-zero epower, but lacks a flag that would make it affect epower (one of %s)",
+                      part.id.c_str(), warnings_are_good_docs.c_str() );
+        }
     }
 }
 
 void vpart_info::reset()
 {
-    vehicle_part_types.clear();
-    vehicle_part_int_types.clear();
+    vpart_info_all.clear();
     abstract_parts.clear();
 }
 
-const std::vector<const vpart_info*> &vpart_info::get_all()
+const std::map<vpart_id, vpart_info> &vpart_info::all()
 {
-    return vehicle_part_int_types;
+    return vpart_info_all;
 }
 
 std::string vpart_info::name() const
@@ -562,9 +529,19 @@ requirement_data vpart_info::repair_requirements() const
     } );
 }
 
+
+bool vpart_info::is_repairable() const
+{
+    return !repair_requirements().is_empty();
+}
+
 static int scale_time( const std::map<skill_id, int> &sk, int mv, const Character &ch ) {
+    if( sk.empty() ) {
+        return mv;
+    }
+
     int lvl = std::accumulate( sk.begin(), sk.end(), 0, [&ch]( int lhs, const std::pair<skill_id,int>& rhs ) {
-        return lhs + std::max( rhs.second - std::min( ch.get_skill_level( rhs.first ).level(), MAX_SKILL ), 0 );
+        return lhs + std::max( std::min( ch.get_skill_level( rhs.first ).level(), MAX_SKILL ) - rhs.second, 0 );
     } );
     // 10% per excess level (reduced proportionally if >1 skill required) with max 50% reduction
     return mv * ( 1.0 - std::min( double( lvl ) / sk.size() / 10.0, 0.5 ) );
@@ -582,6 +559,7 @@ int vpart_info::repair_time( const Character &ch ) const {
     return scale_time( repair_skills, repair_moves, ch );
 }
 
+/** @relates string_id */
 template<>
 const vehicle_prototype &string_id<vehicle_prototype>::obj() const
 {
@@ -599,6 +577,7 @@ const vehicle_prototype &string_id<vehicle_prototype>::obj() const
     return iter->second;
 }
 
+/** @relates string_id */
 template<>
 bool string_id<vehicle_prototype>::is_valid() const
 {
@@ -631,11 +610,12 @@ void vehicle_prototype::load(JsonObject &jo)
 
         part_def pt;
         pt.pos = point( part.get_int( "x" ), part.get_int( "y" ) );
-        pt.part = vpart_str_id( part.get_string( "part" ) );
+        pt.part = vpart_id( part.get_string( "part" ) );
 
         assign( part, "ammo", pt.with_ammo, true, 0, 100 );
         assign( part, "ammo_types", pt.ammo_types, true );
         assign( part, "ammo_qty", pt.ammo_qty, true, 0 );
+        assign( part, "fuel", pt.fuel, true );
 
         vproto.parts.push_back( pt );
     }
@@ -731,13 +711,23 @@ void vehicle_prototype::finalize()
             } else {
                 for( const auto &e : pt.ammo_types ) {
                     auto ammo = item::find_type( e );
-                    if( !ammo->ammo && ammo->ammo->type == base->gun->ammo ) {
+                    if( !ammo->ammo && ammo->ammo->type.count( base->gun->ammo ) ) {
                         debugmsg( "init_vehicles: turret %s has invalid ammo_type %s in %s",
                                   pt.part.c_str(), e.c_str(), id.c_str() );
                     }
                 }
                 if( pt.ammo_types.empty() ) {
                     pt.ammo_types.insert( default_ammo( base->gun->ammo ) );
+                }
+            }
+
+            if( base->container ) {
+                if( !item::type_is_defined( pt.fuel ) ) {
+                    debugmsg( "init_vehicles: tank %s specified invalid fuel in %s", pt.part.c_str(), id.c_str() );
+                }
+            } else {
+                if( pt.fuel != "null" ) {
+                    debugmsg( "init_vehicles: non-tank %s with fuel in %s", pt.part.c_str(), id.c_str() );
                 }
             }
 

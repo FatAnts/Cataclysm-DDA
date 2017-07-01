@@ -57,7 +57,7 @@ void sokoban_game::parse_level( std::istream &fin )
 
     std::string sLine;
     while(!fin.eof()) {
-        getline(fin, sLine);
+        safe_getline(fin, sLine);
 
         if (sLine.substr(0, 3) == "; #") {
             iNumLevel++;
@@ -93,7 +93,7 @@ void sokoban_game::parse_level( std::istream &fin )
             }
 
             if (sLine[i] == '.' || sLine[i] == '*' || sLine[i] == '+') {
-                vLevelDone[iNumLevel].push_back(std::make_pair(mLevelInfo[iNumLevel]["MaxLevelY"], i));
+                vLevelDone[iNumLevel].push_back(std::make_pair(static_cast<int>( mLevelInfo[iNumLevel]["MaxLevelY"] ), static_cast<int>( i )));
             }
 
             vLevel[iNumLevel][mLevelInfo[iNumLevel]["MaxLevelY"]][i] = sLine[i];

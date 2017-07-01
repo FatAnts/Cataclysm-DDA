@@ -24,30 +24,10 @@
     "flags": [ "FIRE_100" ]
   },
   {
-    "id": "bayonet",
-    "type": "GUNMOD",
-    "name": "bayonet",
-    "description": "A bayonet is a stabbing weapon that can be attached to the front of a shotgun, submachine gun or rifle, allowing a melee attack to deal piercing damage.",
-    "weight": 387,
-    "volume": 2,
-    "price": 4000,
-    "to_hit": -1,
-    "cutting": 12,
-    "material": [ "steel" ],
-    "symbol": ":",
-    "color": "light_gray",
-    "location": "underbarrel",
-    "mod_targets": [ "shotgun", "smg", "rifle", "crossbow", "launcher" ],
-    "dispersion_modifier": 10,
-    "mode_modifier": [ [ "REACH", "bayonet", 2, [ "MELEE" ] ] ],
-    "min_skills": [ [ "weapon", 2 ], [ "melee", 1 ] ],
-    "flags": [ "NON_STUCK", "SPEAR", "BAYONET" ]
-  },
-  {
     "id": "bipod",
     "type": "GUNMOD",
     "name": "bipod",
-    "description": "Bipods are commonly used on rifles and machine guns to provide a forward rest and reduce motion.  Although they greatly improve handling of recoil they are useable only on certain surfaces and are slow to equip.",
+    "description": "Bipods are commonly used on rifles and machine guns to provide a forward rest and reduce motion.  Although they greatly improve handling of recoil they are usable only on certain surfaces and are slow to equip.",
     "weight": 400,
     "volume": 2,
     "price": 68000,
@@ -66,7 +46,7 @@
     "id": "combination_gun_shotgun",
     "type": "GUNMOD",
     "name": "combination gun shotgun",
-    "description": "The integrated underbarrel shotgun of a combination gun which holds a single shot.  It's irremovable.",
+    "description": "The integrated underbarrel shotgun of a combination gun which holds two shots.  It's irremovable.",
     "weight": 2600,
     "volume": 0,
     "price": 95000,
@@ -80,18 +60,18 @@
       "ammo": "shot",
       "skill": "shotgun",
       "range": 2,
-      "dispersion": 20,
+      "dispersion": 45,
       "durability": 10,
-      "clip_size": 1
+      "clip_size": 2
     },
     "dispersion_modifier": 15,
-    "flags": [ "RELOAD_ONE", "IRREMOVABLE", "TRADER_AVOID" ]
+    "flags": [ "IRREMOVABLE", "RELOAD_ONE", "RELOAD_EJECT" ]
   },
   {
     "id": "combination_gun_shotgun_pipe",
     "type": "GUNMOD",
     "name": "pipe combination gun shotgun",
-    "description": "The integrated underbarrel shotgun of a pipe combination gun which holds a single shot.  It's irremovable.",
+    "description": "The integrated underbarrel shotgun of a pipe combination gun which holds two shots.  It's irremovable.",
     "weight": 1134,
     "volume": 4,
     "price": 10000,
@@ -104,47 +84,11 @@
     "gun_data": {
       "ammo": "shot",
       "skill": "shotgun",
-      "ranged_damage": 2,
-      "dispersion": 555,
+      "dispersion": 180,
       "durability": 6,
-      "loudness": 175,
-      "clip_size": 1,
-      "flags": [ "RELOAD_ONE", "NEVER_JAMS", "RELOAD_EJECT" ]
+      "clip_size": 2
     },
-    "flags": [ "RELOAD_ONE", "IRREMOVABLE" ]
-  },
-  {
-    "id": "diamond_bayonet",
-    "copy-from": "bayonet",
-    "type": "GUNMOD",
-    "name": "diamond bayonet",
-    "description": "This bayonet incorporates a layer of diamond-like carbon on its edges, increasing its lethality.",
-    "proportional": {
-      "price": 4,
-      "cutting": 2
-    }
-  },
-  {
-    "id": "diamond_pistol_bayonet",
-    "copy-from": "pistol_bayonet",
-    "type": "GUNMOD",
-    "name": "diamond pistol bayonet",
-    "description": "This pistol bayonet incorporates a layer of diamond-like carbon on its edges, increasing its lethality.",
-    "proportional": {
-      "price": 4,
-      "cutting": 2
-    }
-  },
-  {
-    "id": "diamond_sword_bayonet",
-    "copy-from": "sword_bayonet",
-    "type": "GUNMOD",
-    "name": "diamond sword bayonet",
-    "description": "This sword bayonet is coated with a layer of diamond-like carbon, greatly augmenting its cutting damage.",
-    "proportional": {
-      "price": 4,
-      "cutting": 2
-    }
+    "flags": [ "IRREMOVABLE", "RELOAD_ONE", "NEVER_JAMS", "RELOAD_EJECT" ]
   },
   {
     "id": "grip",
@@ -163,11 +107,31 @@
     "min_skills": [ [ "weapon", 2 ] ]
   },
   {
+    "id": "inter_bayonet",
+    "type": "GUNMOD",
+    "name": "integrated bayonet",
+    "description": "This is the bayonet integrated in the firearm.",
+    "weight": 1,
+    "volume": 1,
+    "price": 4000,
+    "to_hit": -1,
+    "cutting": 10,
+    "material": [ "steel" ],
+    "symbol": ":",
+    "color": "light_gray",
+    "location": "underbarrel",
+    "mod_targets": [ "shotgun", "rifle" ],
+    "dispersion_modifier": 10,
+    "mode_modifier": [ [ "REACH", "bayonet", 2, [ "MELEE" ] ] ],
+    "flags": [ "SLOW_WIELD", "IRREMOVABLE", "STAB" ]
+  },
+  {
     "id": "ksg_aux_shotgun",
     "type": "GUNMOD",
     "name": "KSG second magazine",
     "description": "The integrated second shotgun magazine of the Kel-Tec KSG which holds 7 shots.  It's irremovable.",
-    "volume": 0,
+    "weight": 1550,
+    "volume": 7,
     "price": 0,
     "material": [ "steel" ],
     "symbol": ":",
@@ -180,7 +144,6 @@
       "ranged_damage": 3,
       "dispersion": 45,
       "durability": 10,
-      "loudness": 200,
       "clip_size": 7,
       "reload": 120
     },
@@ -250,7 +213,8 @@
       "clip_size": 1
     },
     "dispersion_modifier": 30,
-    "min_skills": [ [ "weapon", 2 ], [ "launcher", 1 ] ]
+    "min_skills": [ [ "weapon", 2 ], [ "launcher", 1 ] ],
+    "flags": [ "NEVER_JAMS", "RELOAD_EJECT" ]
   },
   {
     "id": "m320_mod",
@@ -271,11 +235,25 @@
       "skill": "launcher",
       "dispersion": 20,
       "durability": 10,
-      "clip_size": 1,
-      "flags": [ "NEVER_JAMS", "RELOAD_EJECT" ]
+      "clip_size": 1
     },
     "dispersion_modifier": 60,
-    "min_skills": [ [ "weapon", 2 ], [ "launcher", 1 ] ]
+    "min_skills": [ [ "weapon", 2 ], [ "launcher", 1 ] ],
+    "flags": [ "NEVER_JAMS", "RELOAD_EJECT" ]
+  },
+  {
+    "id": "makeshift_bayonet",
+    "copy-from": "spike",
+    "type": "GENERIC",
+    "name": "makeshift bayonet",
+    "description": "A makeshift version of a bayonet that consists of a mere spike with some string.",
+    "gunmod_data": {
+      "location": "underbarrel",
+      "mod_targets": [ "shotgun", "rifle", "smg", "crossbow" ],
+      "dispersion_modifier": 10,
+      "mode_modifier": [ [ "REACH", "bayonet", 2, [ "MELEE" ] ] ],
+      "min_skills": [ [ "weapon", 2 ], [ "melee", 1 ] ]
+    }
   },
   {
     "id": "masterkey",
@@ -341,7 +319,7 @@
     "mod_targets": [ "pistol" ],
     "dispersion_modifier": 15,
     "min_skills": [ [ "weapon", 2 ], [ "melee", 1 ] ],
-    "flags": [ "STAB", "BAYONET" ]
+    "flags": [ "STAB" ]
   },
   {
     "id": "rm121aux",
@@ -368,25 +346,6 @@
     "magazine_well": 1,
     "magazines": [ [ "20x66mm", [ "20x66_10_mag" ] ] ],
     "flags": [ "WATERPROOF_GUN", "NEVER_JAMS" ]
-  },
-  {
-    "id": "sword_bayonet",
-    "type": "GUNMOD",
-    "name": "sword bayonet",
-    "description": "A sword bayonet is a large slashing weapon that can be attached to the front of a shotgun or rifle, allowing a melee attack to deal cutting damage.",
-    "weight": 923,
-    "volume": 3,
-    "price": 5000,
-    "cutting": 18,
-    "material": [ "steel" ],
-    "symbol": ":",
-    "color": "dark_gray",
-    "location": "underbarrel",
-    "mod_targets": [ "shotgun", "rifle", "crossbow", "launcher" ],
-    "dispersion_modifier": 20,
-    "mode_modifier": [ [ "REACH", "bayonet", 2, [ "MELEE" ] ] ],
-    "min_skills": [ [ "weapon", 2 ], [ "melee", 2 ] ],
-    "flags": [ "NON_STUCK", "CHOP", "BAYONET" ]
   },
   {
     "id": "u_shotgun",

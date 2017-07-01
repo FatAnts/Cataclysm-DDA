@@ -4,6 +4,7 @@
 #include "rng.h"
 #include "generic_factory.h"
 #include "item_group.h"
+#include "mutation.h"
 
 #include <list>
 
@@ -48,15 +49,14 @@ npc_class_id NC_JUNK_SHOPKEEP( "NC_JUNK_SHOPKEEP" );
 
 generic_factory<npc_class> npc_class_factory( "npc_class" );
 
-template<>
-const npc_class_id string_id<npc_class>::NULL_ID( "NC_NONE" );
-
+/** @relates string_id */
 template<>
 const npc_class &string_id<npc_class>::obj() const
 {
     return npc_class_factory.obj( *this );
 }
 
+/** @relates string_id */
 template<>
 bool string_id<npc_class>::is_valid() const
 {
@@ -67,9 +67,9 @@ npc_class::npc_class() : id( NC_NONE )
 {
 }
 
-void npc_class::load_npc_class( JsonObject &jo )
+void npc_class::load_npc_class( JsonObject &jo, const std::string &src )
 {
-    npc_class_factory.load( jo );
+    npc_class_factory.load( jo, src );
 }
 
 void npc_class::reset_npc_classes()
@@ -127,9 +127,27 @@ void npc_class::check_consistency()
             debugmsg( "Missing shopkeeper item group %s", cl.shopkeeper_item_group.c_str() );
         }
 
+        if( !cl.worn_override.empty() && !item_group::group_is_defined( cl.worn_override ) ) {
+            debugmsg( "Missing worn override item group %s", cl.worn_override.c_str() );
+        }
+
+        if( !cl.carry_override.empty() && !item_group::group_is_defined( cl.carry_override ) ) {
+            debugmsg( "Missing carry override item group %s", cl.carry_override.c_str() );
+        }
+
+        if( !cl.weapon_override.empty() && !item_group::group_is_defined( cl.weapon_override ) ) {
+            debugmsg( "Missing weapon override item group %s", cl.weapon_override.c_str() );
+        }
+
         for( const auto &pr : cl.skills ) {
             if( !pr.first.is_valid() ) {
                 debugmsg( "Invalid skill %s", pr.first.c_str() );
+            }
+        }
+
+        for( const auto &pr : cl.traits ) {
+            if( !pr.first.is_valid() ) {
+                debugmsg( "Invalid trait %s", pr.first.c_str() );
             }
         }
     }
@@ -202,7 +220,7 @@ distribution load_distribution( JsonObject &jo, const std::string &name )
     return distribution();
 }
 
-void npc_class::load( JsonObject &jo )
+void npc_class::load( JsonObject &jo, const std::string & )
 {
     mandatory( jo, was_loaded, "name", name, translated_string_reader );
     mandatory( jo, was_loaded, "job_description", job_description, translated_string_reader );
@@ -214,6 +232,17 @@ void npc_class::load( JsonObject &jo )
     bonus_per = load_distribution( jo, "bonus_per" );
 
     optional( jo, was_loaded, "shopkeeper_item_group", shopkeeper_item_group, "EMPTY_GROUP" );
+    optional( jo, was_loaded, "worn_override", worn_override );
+    optional( jo, was_loaded, "carry_override", carry_override );
+    optional( jo, was_loaded, "weapon_override", weapon_override );
+
+    if( jo.has_array( "traits" ) ) {
+        JsonArray jarr = jo.get_array( "traits" );
+        while( jarr.has_more() ) {
+            JsonArray jarr_in = jarr.next_array();
+            traits[ trait_id( jarr_in.get_string( 0 ) ) ] = jarr_in.get_int( 1 );
+        }
+    }
 
     if( jo.has_array( "skills" ) ) {
         JsonArray jarr = jo.get_array( "skills" );
@@ -239,7 +268,7 @@ const npc_class_id &npc_class::from_legacy_int( int i )
 {
     if( i < 0 || ( size_t )i >= legacy_ids.size() ) {
         debugmsg( "Invalid legacy class id: %d", i );
-        return NULL_ID;
+        return npc_class_id::NULL_ID();
     }
 
     return legacy_ids[ i ];

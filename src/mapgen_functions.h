@@ -1,3 +1,4 @@
+#pragma once
 #ifndef BUILDING_GENERATION_H
 #define BUILDING_GENERATION_H
 
@@ -52,10 +53,14 @@ public:
  */
 tripoint rotate_point( const tripoint &p, int turn );
 
+int terrain_type_to_nesw_array( oter_id terrain_type, bool array[4] );
+
+// @todo pass mapgendata by reference.
 typedef void (*building_gen_pointer)(map *,oter_id,mapgendata,int,float);
 extern std::map<std::string, building_gen_pointer> mapgen_cfunction_map;
 ter_id grass_or_dirt();
 ter_id dirt_or_pile();
+ter_id clay_or_sand();
 
 // helper functions for mapgen.cpp, so that we can avoid having a massive switch statement (sorta)
 void mapgen_null(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
@@ -103,20 +108,11 @@ void mapgen_basement_game(map *m, oter_id terrain_type, mapgendata dat, int turn
 void mapgen_basement_spiders(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 // autogen.sh
 void mapgen_office_doctor(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_apartments_mod_tower_1_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_apartments_mod_tower_1(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_office_tower_1_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_office_tower_1(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_office_tower_b_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_office_tower_b(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_cathedral_1_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_cathedral_1(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_cathedral_b_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_cathedral_b(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_sub_station(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_s_garage(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_farm(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_farm_field(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_police(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_bank(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_pawn(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
@@ -125,17 +121,6 @@ void mapgen_megastore_entrance(map *m, oter_id terrain_type, mapgendata dat, int
 void mapgen_megastore(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_hospital_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_hospital(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_public_works_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_public_works(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_1(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_2(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_3(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_4(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_5(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_6(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_7(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_8(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_school_9(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_prison_1(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_prison_2(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_prison_3(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
@@ -174,7 +159,6 @@ void mapgen_ice_lab_core(map *m, oter_id terrain_type, mapgendata dat, int turn,
 void mapgen_ice_lab_finale(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_nuke_plant_entrance(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_nuke_plant(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
-void mapgen_bunker(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_outpost(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_silo(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);
 void mapgen_silo_finale(map *m, oter_id terrain_type, mapgendata dat, int turn, float density);

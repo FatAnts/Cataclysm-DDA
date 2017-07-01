@@ -19,9 +19,11 @@
 #include "field.h"
 #include "player.h"
 #include "text_snippets.h"
+#include "input.h"
 
 #include <string>
 #include <sstream>
+#include <algorithm>
 
 const mtype_id mon_manhack( "mon_manhack" );
 const mtype_id mon_secubot( "mon_secubot" );
@@ -35,17 +37,9 @@ const efftype_id effect_stemcell_treatment( "stemcell_treatment" );
 
 int alerts = 0;
 
-computer::computer(): name(DEFAULT_COMPUTER_NAME)
+computer::computer( const std::string &new_name, int new_security ): name( new_name )
 {
-    security = 0;
-    w_terminal = NULL;
-    w_border = NULL;
-    mission_id = -1;
-}
-
-computer::computer(std::string Name, int Security): name(Name)
-{
-    security = Security;
+    security = new_security;
     w_terminal = NULL;
     w_border = NULL;
     mission_id = -1;
@@ -175,7 +169,8 @@ void computer::use()
 
         char ch;
         do {
-            ch = getch();
+            // TODO: use input context
+            ch = inp_mngr.get_input_event().get_first_input();
         } while (ch != 'q' && ch != 'Q' && (ch < '1' || ch - '1' >= (char)options_size));
         if (ch == 'q' || ch == 'Q') {
             break; // Exit from main computer loop
@@ -557,7 +552,7 @@ void computer::activate_function(computer_action action, char ch)
         //~ %s is terrain name
         g->u.add_memorial_log( pgettext("memorial_male", "Launched a nuke at a %s."),
                                pgettext("memorial_female", "Launched a nuke at a %s."),
-                               oter->name.c_str() );
+                               oter->get_name().c_str() );
         for(int x = target.x - 2; x <= target.x + 2; x++) {
             for(int y = target.y - 2; y <= target.y + 2; y++) {
                 // give it a nice rounded shape
@@ -728,7 +723,7 @@ INITIATING STANDARD TREMOR TEST..."));
         print_gibberish_line();
         print_newline();
         print_error(_("FILE CORRUPTED, PRESS ANY KEY..."));
-        getch();
+        inp_mngr.wait_for_any_key();
         reset_terminal();
         break;
 
@@ -757,24 +752,26 @@ of pureed bone & LSD."));
                 print_error(_("--ACCESS GRANTED--"));
                 print_error(_("Mission Complete!"));
                 miss->step_complete( 1 );
-                getch();
+                inp_mngr.wait_for_any_key();
                 return;
                 //break;
             }
         }
         print_error(_("ACCESS DENIED"));
-        getch();
+        inp_mngr.wait_for_any_key();
         break;
 
     case COMPACT_REPEATER_MOD:
         if (g->u.has_amount("radio_repeater_mod", 1)) {
             for( auto miss : g->u.get_active_missions() ) {
-                if (miss->name() == "Install Repeater Mod"){
+                static const mission_type_id commo_3 = mission_type_id("MISSION_OLD_GUARD_NEC_COMMO_3"),
+                    commo_4 = mission_type_id("MISSION_OLD_GUARD_NEC_COMMO_4");
+                if (miss->mission_id() == commo_3 || miss->mission_id() == commo_4) {
                     miss->step_complete( 1 );
                     print_error(_("Repeater mod installed..."));
                     print_error(_("Mission Complete!"));
                     g->u.use_amount("radio_repeater_mod", 1);
-                    getch();
+                    inp_mngr.wait_for_any_key();
                     options.clear();
                     activate_failure(COMPFAIL_SHUTDOWN);
                     break;
@@ -782,7 +779,7 @@ of pureed bone & LSD."));
             }
         }else{
             print_error(_("You do not have a repeater mod to install..."));
-            getch();
+            inp_mngr.wait_for_any_key();
             break;
         }
         break;
@@ -804,7 +801,7 @@ of pureed bone & LSD."));
             usb->put_in(software);
             print_line(_("Software downloaded."));
         }
-        getch();
+        inp_mngr.wait_for_any_key();
         break;
 
     case COMPACT_BLOOD_ANAL:
@@ -825,7 +822,7 @@ of pureed bone & LSD."));
                     } else { // Success!
                         const item &blood = g->m.i_at(x, y).front().contents.front();
                         const mtype *mt = blood.get_mtype();
-                        if( mt == nullptr || mt->id == NULL_ID ) {
+                        if( mt == nullptr || mt->id == mtype_id::NULL_ID() ) {
                             print_line(_("Result:  Human blood, no pathogens found."));
                         } else if( mt->in_species( ZOMBIE ) ) {
                             if( mt->sym == "Z" ) {
@@ -914,18 +911,7 @@ SHORTLY. TO ENSURE YOUR SAFETY PLEASE FOLLOW THE BELOW STEPS. \n\
 
     case COMPACT_EMERG_REF_CENTER:
         reset_terminal();
-        print_line(_("\
-IF YOU HAVE ANY FEEDBACK CONCERNING YOUR VISIT PLEASE CONTACT \n\
-THE DEPARTMENT OF EMERGENCY MANAGEMENT PUBLIC AFFAIRS OFFICE.  \n\
-THE LOCAL OFFICE CAN BE REACHED BETWEEN THE HOURS OF 9AM AND \n\
-4PM AT 1-800-255-5678.                                      \n\
-\n\
-IF YOU WOULD LIKE TO SPEAK WITH SOMEONE IN PERSON OR WOULD LIKE\n\
-TO WRITE US A LETTER PLEASE SEND IT TO...\n\
-\n\
-It takes you forever to find the address on your map...\n"));
-        overmap_buffer.reveal(overmap_buffer.find_closest( g->u.global_omt_location(), "evac_center_13", 0, false ), 3);
-        query_any(_("You mark the refugee center..."));
+        mark_refugee_center();
         reset_terminal();
         break;
 
@@ -1268,7 +1254,7 @@ void computer::activate_failure(computer_failure fail)
     break;
 
     case COMPFAIL_DAMAGE:
-        add_msg(m_neutral, _("The console electrocutes you."));
+        add_msg(m_neutral, _("The console shocks you."));
         if( g->u.is_elec_immune() ) {
             add_msg( m_good, _("You're protected from electric shocks.") );
         } else {
@@ -1354,7 +1340,7 @@ void computer::activate_failure(computer_failure fail)
                 }
             }
         }
-        getch();
+        inp_mngr.wait_for_any_key();
         break;
 
     case COMPFAIL_DESTROY_DATA:
@@ -1377,7 +1363,7 @@ void computer::activate_failure(computer_failure fail)
                 }
             }
         }
-        getch();
+        inp_mngr.wait_for_any_key();
         break;
 
     }// switch (fail)
@@ -1393,6 +1379,30 @@ void computer::remove_option( computer_action const action )
     }
 }
 
+void computer::mark_refugee_center()
+{
+    //~555-0164 is a fake phone number in the US, please replace it with a number that will not cause issues in your locale if possible.
+    print_line( _( "\
+IF YOU HAVE ANY FEEDBACK CONCERNING YOUR VISIT PLEASE CONTACT \n\
+THE DEPARTMENT OF EMERGENCY MANAGEMENT PUBLIC AFFAIRS OFFICE. \n\
+THE LOCAL OFFICE CAN BE REACHED BETWEEN THE HOURS OF 9AM AND  \n\
+4PM AT 555-0164.                                              \n\
+\n\
+IF YOU WOULD LIKE TO SPEAK WITH SOMEONE IN PERSON OR WOULD LIKE\n\
+TO WRITE US A LETTER PLEASE SEND IT TO...\n" ) );
+
+    const mission_type_id &mission_type = mission_type_id( "MISSION_REACH_REFUGEE_CENTER" );
+    const std::vector<mission *> missions = g->u.get_active_missions();
+    if( !std::any_of( missions.begin(), missions.end(), [ &mission_type ]( mission * mission ) {
+        return mission->get_type().id == mission_type;
+    } ) ) {
+        const auto mission = mission::reserve_new( mission_type, -1 );
+        mission->assign( g->u );
+    }
+
+    query_any( _( "Press any key to continue..." ) );
+}
+
 bool computer::query_bool(const char *mes, ...)
 {
     va_list ap;
@@ -1402,7 +1412,8 @@ bool computer::query_bool(const char *mes, ...)
     print_line("%s (Y/N/Q)", text.c_str());
     char ret;
     do {
-        ret = getch();
+        // TODO: use input context
+        ret = inp_mngr.get_input_event().get_first_input();
     } while (ret != 'y' && ret != 'Y' && ret != 'n' && ret != 'N' && ret != 'q' &&
              ret != 'Q');
     return (ret == 'y' || ret == 'Y');
@@ -1415,7 +1426,7 @@ bool computer::query_any(const char *mes, ...)
     const std::string text = vstring_format(mes, ap);
     va_end(ap);
     print_line("%s", text.c_str());
-    getch();
+    inp_mngr.wait_for_any_key();
     return true;
 }
 
@@ -1428,7 +1439,8 @@ char computer::query_ynq(const char *mes, ...)
     print_line("%s (Y/N/Q)", text.c_str());
     char ret;
     do {
-        ret = getch();
+        // TODO: use input context
+        ret = inp_mngr.get_input_event().get_first_input();
     } while (ret != 'y' && ret != 'Y' && ret != 'n' && ret != 'N' && ret != 'q' &&
              ret != 'Q');
     return ret;

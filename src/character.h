@@ -1,3 +1,4 @@
+#pragma once
 #ifndef CHARACTER_H
 #define CHARACTER_H
 
@@ -7,8 +8,10 @@
 #include "bionics.h"
 #include "skill.h"
 #include "map_selector.h"
+#include "pathfinding.h"
 
 #include <map>
+#include <vector>
 
 using skill_id = string_id<Skill>;
 enum field_id : int;
@@ -16,6 +19,7 @@ class field;
 class field_entry;
 class vehicle;
 struct resistances;
+struct mutation_branch;
 
 enum vision_modes {
     DEBUG_NIGHTVISION,
@@ -142,7 +146,7 @@ class Character : public Creature, public visitable<Character>
         virtual void set_stomach_food(int n_stomach_food);
         virtual void set_stomach_water(int n_stomach_water);
 
-        void mod_stat( const std::string &stat, int modifier ) override;
+        void mod_stat( const std::string &stat, float modifier ) override;
 
         /* Adjusts provided sight dispersion to account for player stats */
         int effective_dispersion( int dispersion ) const;
@@ -151,8 +155,8 @@ class Character : public Creature, public visitable<Character>
         double aim_per_move( const item &gun, double recoil ) const;
 
         /** Combat getters */
-        int get_dodge_base() const override;
-        int get_hit_base() const override;
+        float get_dodge_base() const override;
+        float get_hit_base() const override;
 
         /** Handles health fluctuations over time */
         virtual void update_health(int external_modifiers = 0);
@@ -163,6 +167,11 @@ class Character : public Creature, public visitable<Character>
         void reset_stats() override;
         /** Handles stat and bonus reset. */
         void reset() override;
+
+        /** Picks a random body part, adjusting for mutations, broken body parts etc. */
+        body_part get_random_body_part( bool main ) const override;
+        /** Returns all body parts this character has, in order they should be displayed. */
+        std::vector<body_part> get_all_body_parts( bool main = false ) const override;
 
         /** Recalculates encumbrance cache. */
         void reset_encumbrance();
@@ -211,31 +220,36 @@ class Character : public Creature, public visitable<Character>
          * This is adjusted by the light level at the *character's* position
          * to simulate glare, etc, night vision only works if you are in the dark.
          */
-        float get_vision_threshold(int light_level) const;
+        float get_vision_threshold( float light_level ) const;
         // --------------- Mutation Stuff ---------------
         // In newcharacter.cpp
         /** Returns the id of a random starting trait that costs >= 0 points */
-        std::string random_good_trait();
+        trait_id random_good_trait();
         /** Returns the id of a random starting trait that costs < 0 points */
-        std::string random_bad_trait();
+        trait_id random_bad_trait();
 
         // In mutation.cpp
         /** Returns true if the player has the entered trait */
-        bool has_trait(const std::string &flag) const override;
+        bool has_trait(const trait_id &flag) const override;
         /** Returns true if the player has the entered starting trait */
-        bool has_base_trait(const std::string &flag) const;
+        bool has_base_trait(const trait_id &flag) const;
         /** Returns true if player has a trait with a flag */
         bool has_trait_flag( const std::string &flag ) const;
         /** Returns true if player has a bionic with a flag */
         bool has_bionic_flag( const std::string &flag ) const;
         /** Returns the trait id with the given invlet, or an empty string if no trait has that invlet */
-        std::string trait_by_invlet( long ch ) const;
+        trait_id trait_by_invlet( long ch ) const;
 
         /** Toggles a trait on the player and in their mutation list */
-        void toggle_trait(const std::string &flag);
+        void toggle_trait( const trait_id &flag );
         /** Add or removes a mutation on the player, but does not trigger mutation loss/gain effects. */
-        void set_mutation(const std::string &flag);
-        void unset_mutation(const std::string &flag);
+        void set_mutation( const trait_id &flag );
+        void unset_mutation( const trait_id &flag );
+
+        /** Converts a body_part to an hp_part */
+        static hp_part bp_to_hp(body_part bp);
+        /** Converts an hp_part to a body_part */
+        static body_part hp_to_bp(hp_part hpart);
 
         /**
          * Displays menu with body part hp, optionally with hp estimation after healing.
@@ -254,10 +268,10 @@ class Character : public Creature, public visitable<Character>
 
  private:
         /** Retrieves a stat mod of a mutation. */
-        int get_mod(std::string mut, std::string arg) const;
+        int get_mod( const trait_id &mut, std::string arg ) const;
  protected:
         /** Applies stat mods to character. */
-        void apply_mods(const std::string &mut, bool add_remove);
+        void apply_mods(const trait_id &mut, bool add_remove);
 
         /** Recalculate encumbrance for all body parts. */
         std::array<encumbrance_data, num_bp> calc_encumbrance() const;
@@ -270,11 +284,11 @@ class Character : public Creature, public visitable<Character>
         void item_encumb( std::array<encumbrance_data, num_bp> &vals, const item &new_item ) const;
  public:
         /** Handles things like destruction of armor, etc. */
-        void mutation_effect(std::string mut);
+        void mutation_effect( const trait_id &mut );
         /** Handles what happens when you lose a mutation. */
-        void mutation_loss_effect(std::string mut);
+        void mutation_loss_effect( const trait_id &mut );
 
-        bool has_active_mutation(const std::string &b) const;
+        bool has_active_mutation( const trait_id &b ) const;
 
         /**
          * Returns resistances on a body part provided by mutations
@@ -286,9 +300,9 @@ class Character : public Creature, public visitable<Character>
 
         // --------------- Bionic Stuff ---------------
         /** Returns true if the player has the entered bionic id */
-        bool has_bionic(const std::string &b) const;
+        bool has_bionic(const bionic_id &b) const;
         /** Returns true if the player has the entered bionic id and it is powered on */
-        bool has_active_bionic(const std::string &b) const;
+        bool has_active_bionic(const bionic_id &b) const;
 
         // --------------- Generic Item Stuff ---------------
 
@@ -404,6 +418,10 @@ class Character : public Creature, public visitable<Character>
 
         /** Maximum thrown range with a given item, taking all active effects into account. */
         int throw_range( const item & ) const;
+        /** Dispersion of a thrown item, against a given target. */
+        int throwing_dispersion( const item &to_throw, Creature *critter = nullptr ) const;
+        /** How much dispersion does one point of target's dodge add when throwing at said target? */
+        int throw_dispersion_per_dodge( bool add_encumbrance = true ) const;
 
         int weight_carried() const;
         units::volume volume_carried() const;
@@ -413,6 +431,13 @@ class Character : public Creature, public visitable<Character>
 
         bool can_pickVolume( const item &it, bool safe = false ) const;
         bool can_pickWeight( const item &it, bool safe = true ) const;
+        /**
+         * Checks if character stats and skills meet minimum requirements for the item.
+         * Prints an appropriate message if requirements not met.
+         * @param it Item we are checking
+         * @param context optionally override effective item when checking contextual skills
+         */
+        bool can_use( const item& it, const item &context = item() ) const;
 
         void drop_inventory_overflow();
 
@@ -424,20 +449,34 @@ class Character : public Creature, public visitable<Character>
         /** Returns true if the player is wearing the item on the given body_part. */
         bool is_wearing_on_bp(const itype_id &it, body_part bp) const;
         /** Returns true if the player is wearing an item with the given flag. */
-        bool worn_with_flag( const std::string &flag ) const;
+        bool worn_with_flag( const std::string &flag, body_part bp = num_bp ) const;
 
         // --------------- Skill Stuff ---------------
         SkillLevel &get_skill_level( const skill_id &ident );
 
         /** for serialization */
-        SkillLevel const& get_skill_level(const skill_id &ident) const;
+        SkillLevel const& get_skill_level(const skill_id &ident, const item &context = item() ) const;
         void set_skill_level( const skill_id &ident, int level );
         void boost_skill_level( const skill_id &ident, int delta );
 
-        bool meets_skill_requirements( const std::map<skill_id, int> &req ) const;
+        /** Calculates skill difference
+         * @param req Required skills to be compared with.
+         * @param context An item to provide context for contextual skills. Can be null.
+         * @return Difference in skills. Positive numbers - exceeds; negative - lacks; empty map - no difference.
+         */
+        std::map<skill_id, int> compare_skill_requirements( const std::map<skill_id, int> &req,
+                                                            const item &context = item() ) const;
+        /** Checks whether the character's skills meet the required */
+        bool meets_skill_requirements( const std::map<skill_id, int> &req,
+                                       const item &context = item() ) const;
+        /** Checks whether the character's stats meets the stats required by the item */
+        bool meets_stat_requirements( const item &it ) const;
+        /** Checks whether the character meets overall requirements to be able to use the item */
+        bool meets_requirements( const item &it, const item &context = item() ) const;
+        /** Returns a string of missed requirements (both stats and skills) */
+        std::string enumerate_unmet_requirements( const item &it, const item &context = item() ) const;
 
         // --------------- Other Stuff ---------------
-
 
         /** return the calendar::turn the character expired */
         int get_turn_died() const
@@ -462,24 +501,42 @@ class Character : public Creature, public visitable<Character>
         /**
          * It is supposed to hide the query_yn to simplify player vs. npc code.
          */
-        virtual bool query_yn( const char *mes, ... ) const = 0;
+        virtual bool query_yn( const char *mes, ... ) const PRINTF_LIKE( 2, 3 ) = 0;
 
         bool is_immune_field( const field_id fid ) const override;
 
         /** Returns true if the player has some form of night vision */
         bool has_nv();
 
+        /**
+         * Returns >0 if character is sitting/lying and relatively inactive.
+         * 1 represents sleep on comfortable bed, so anything above that should be rare.
+         */
+        float rest_quality() const;
+        /**
+         * Average hit points healed per turn.
+         */
+        float healing_rate( float at_rest_quality ) const;
+
+        /**
+         * Goes over all mutations, gets min and max of a value with given name
+         * @return min( 0, lowest ) + max( 0, highest )
+         */
+        float mutation_value( const std::string &val ) const;
+
         /** Color's character's tile's background */
         nc_color symbol_color() const override;
+
+        virtual std::string extended_description() const override;
 
         // In newcharacter.cpp
         void empty_skills();
         /** Returns a random name from NAMES_* */
         void pick_name(bool bUseDefault = false);
         /** Get the idents of all base traits. */
-        std::vector<std::string> get_base_traits() const;
+        std::vector<trait_id> get_base_traits() const;
         /** Get the idents of all traits/mutations. */
-        std::vector<std::string> get_mutations() const;
+        std::vector<trait_id> get_mutations() const;
         const std::bitset<NUM_VISION_MODES> &get_vision_modes() const
         {
             return vision_mode_cache;
@@ -507,8 +564,8 @@ class Character : public Creature, public visitable<Character>
 
     protected:
         void on_stat_change( const std::string &, int ) override {};
-        virtual void on_mutation_gain( const std::string & ) {};
-        virtual void on_mutation_loss( const std::string & ) {};
+        virtual void on_mutation_gain( const trait_id & ) {};
+        virtual void on_mutation_loss( const trait_id & ) {};
 
     public:
         virtual void on_item_wear( const item & ) {};
@@ -525,8 +582,8 @@ class Character : public Creature, public visitable<Character>
             char key = ' ';
             /**
              * Time (in turns) until the mutation increase hunger/thirst/fatigue according
-             * to its cost (@ref mutation_data::cost). When those costs have been paid, this
-             * is reset to @ref mutation_data::cooldown.
+             * to its cost (@ref mutation_branch::cost). When those costs have been paid, this
+             * is reset to @ref mutation_branch::cooldown.
              */
             int charge = 0;
             /** Whether the mutation is activated. */
@@ -556,11 +613,15 @@ class Character : public Creature, public visitable<Character>
          * If there is not entry for a mutation, the character does not have it. If the map
          * contains the entry, the character has the mutation.
          */
-        std::unordered_map<std::string, trait_data> my_mutations;
+        std::unordered_map<trait_id, trait_data> my_mutations;
         /**
          * Contains mutation ids of the base traits.
          */
-        std::unordered_set<std::string> my_traits;
+        std::unordered_set<trait_id> my_traits;
+        /**
+         * Pointers to mutation branches in @ref my_mutations.
+         */
+        std::vector<const mutation_branch *> cached_mutations;
 
         void store(JsonOut &jsout) const;
         void load(JsonObject &jsin);
@@ -574,6 +635,12 @@ class Character : public Creature, public visitable<Character>
 
         // turn the character expired, if -1 it has not been set yet.
         int turn_died = -1;
+
+        /**
+         * Cache for pathfinding settings.
+         * Most of it isn't changed too often, hence mutable.
+         */
+        mutable pathfinding_settings path_settings;
 
     private:
         /** Needs (hunger, thirst, fatigue, etc.) */

@@ -1,3 +1,4 @@
+#pragma once
 #ifndef FLAG_H
 #define FLAG_H
 
@@ -23,6 +24,11 @@ class json_flag
             return info_;
         }
 
+        /** Is flag inherited by base items from any attached items? */
+        bool inherit() const {
+            return inherit_;
+        }
+
         /** Is this a valid (non-null) flag */
         operator bool() const {
             return !id_.empty();
@@ -32,6 +38,7 @@ class json_flag
         const std::string id_;
         std::string info_;
         std::set<std::string> conflicts_;
+        bool inherit_ = true;
 
         json_flag( const std::string &id = std::string() ) : id_( id ) {}
 

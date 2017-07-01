@@ -185,6 +185,72 @@ Run:
     PLATFORM="i686-w64-mingw32.static"
     make CROSS="~/src/mxe/usr/bin/${PLATFORM}-" LUA=1 RELEASE=1 LOCALIZE=1
 
+## Cross-compile to Mac OS X from Linux
+
+The procedure is very much similar to cross-compilation to Windows from Linux.
+Tested on ubuntu 14.04 LTS but should work on other distros as well.
+
+### Dependencies
+
+  * OSX cross-compiling toolchain [osxcross](https://github.com/tpoechtrager/osxcross)
+
+  * `genisoimage` and [libdmg-hfsplus](https://github.com/planetbeing/libdmg-hfsplus.git) to create dmg distributions
+
+Make sure that all dependency tools are in search `PATH` before compiling.
+
+### Setup
+
+To set up the compiling environment execute the following commands
+`git clone https://github.com/tpoechtrager/osxcross.git` to clone the toolchain
+`cd osxcross`
+`cp ~/MacOSX10.11.sdk.tar.bz2 ./tarballs/` copy prepared MacOSX SDK tarball on place. [Read more about it](https://github.com/tpoechtrager/osxcross/blob/master/README.md#packaging-the-sdk)
+`OSX_VERSION_MIN=10.7 ./build.sh to build everything`
+Note the targeted minimum supported version of OSX.
+
+Have a prepackaged set of libs and frameworks in place, since compiling with `osxcross` built-in MacPorts is rather difficult and not supported at the moment.
+Your directory tree should look like:
+
+    ~/
+    ├── Frameworks
+    │   ├── SDL2.framework
+    │   ├── SDL2_image.framework
+    │   ├── SDL2_mixer.framework
+    │   └── SDL2_ttf.framework
+    └── libs
+        ├── gettext
+        │   ├── include
+        │   └── lib
+        ├── lua
+        │   ├── include
+        │   └── lib
+        └── ncurses
+            ├── include
+            └── lib
+
+Populated with respective frameworks, dylibs and headers.
+Tested lib versions are libintl.8.dylib for gettext, liblua.5.2.4.dylib for lua, libncurses.5.4.dylib for ncurses.
+These libs were obtained from `homebrew` binary distribution at OS X 10.11
+Frameworks were obtained from SDL official website as described in the next [section](https://github.com/CleverRaven/Cataclysm-DDA/blob/master/COMPILING.md#sdl)
+
+### Building (SDL)
+
+To build full feature tiles and sound enabled version with localizations and lua enabled:
+
+    make dmgdist CROSS=x86_64-apple-darwin15- NATIVE=osx OSX_MIN=10.7 USE_HOME_DIR=1 CLANG=1
+      RELEASE=1 LOCALIZE=1 LANGUAGES=all LUA=1 TILES=1 SOUND=1 FRAMEWORK=1
+      OSXCROSS=1 LIBSDIR=../libs FRAMEWORKSDIR=../Frameworks
+
+Make sure that `x86_64-apple-darwin15-clang++` is in `PATH` environment variable.
+
+### Building (ncurses)
+
+To build full curses version with localizations and lua enabled:
+
+    make dmgdist CROSS=x86_64-apple-darwin15- NATIVE=osx OSX_MIN=10.7 USE_HOME_DIR=1 CLANG=1
+      RELEASE=1 LOCALIZE=1 LANGUAGES=all LUA=1 OSXCROSS=1 LIBSDIR=../libs FRAMEWORKSDIR=../Frameworks
+
+Make sure that `x86_64-apple-darwin15-clang++` is in `PATH` environment variable.
+
 # Mac OS X
 
 To build Cataclysm on Mac you'll need [Command Line Tools for Xcode](https://developer.apple.com/downloads/) and the [Homebrew](http://brew.sh) package manager. With Homebrew, you can easily install or build Cataclysm using the Cataclysm forumla on Homebrew Games.
@@ -277,6 +343,27 @@ For MacPorts:
     sudo port install gettext ncurses
     hash -r
 
+### gcc
+    
+The version of gcc/g++ installed with the [Command Line Tools for Xcode](https://developer.apple.com/downloads/) is actually just a front end for the same Apple LLVM as clang.  This doesn't necessarily cause issues, but this version of gcc/g++ will have clang error messages and essentially produce the same results as if using clang. To compile with the "real" gcc/g++, install it with homebrew:
+
+    brew install gcc
+    
+However, homebrew installs gcc as gcc-6 (where 6 is the version) to avoid conflicts. The simplest way to use the homebrew version at `/usr/local/bin/gcc-6` instead of the Apple LLVM version at `/usr/bin/gcc` is to symlink the necessary.
+    
+    cd /usr/local/bin
+    ln -s gcc-6 gcc
+    ln -s g++-6 g++
+    ln -s c++-6 c++
+    
+Or, to do this for everything in `/usr/local/bin/` ending with `-6`, 
+
+    find /usr/local/bin -name "*-6" -exec sh -c 'ln -s "$1" $(echo "$1" | sed "s/..$//")' _ {} \;
+    
+Also, you need to make sure that `/usr/local/bin` appears before `/usr/bin` in your `$PATH`, or else this will not work.
+
+Check that `gcc -v` shows the homebrew version you installed.
+
 ### Compiling
 
 The Cataclysm source is compiled using `make`.
@@ -294,6 +381,7 @@ The Cataclysm source is compiled using `make`.
 * `CLANG=1` build with [Clang](http://clang.llvm.org/), the compiler that's included with the latest Command Line Tools for Xcode; omit to build using gcc/g++.
 * `MACPORTS=1` build against dependencies installed via Macports, currently only `gettext` and `ncurses`.
 * `USE_HOME_DIR=1` places user files (config, saves, graveyard, etc) in the user's home directory. For curses builds, this is `/Users/<user>/.cataclysm-dda`, for SDL builds it is `/Users/<user>/Library/Application Support/Cataclysm`.
+* `DEBUG_SYMBOLS=1` retains debug symbols when building an optimized release binary, making it easy for developers to spot the crash site.
 
 In addition to the options above, there is an `app` make target which will package the tiles build into `Cataclysm.app`, a complete tiles build in a Mac application that can run without Terminal.
 
@@ -373,35 +461,15 @@ Visual Studio 2015 is required to build Cataclysm. We created solution and proje
 
 ### Dependencies
 
-#### SDL
+We've prepared an archive containing all the headers and libraries required to build Cataclysm: [http://dev.narc.ro/cataclysm/WinDepend-MSVC.zip](http://dev.narc.ro/cataclysm/WinDepend-MSVC.zip) or [http://dev.narc.ro/cataclysm/WinDepend-MSVC.7z](http://dev.narc.ro/cataclysm/WinDepend-MSVC.7z). The latter is smaller, but if you don't have a 7-zip archive extracter, the former one is easier to deal with.
 
-The following 4 libraries are required.
+Extract the 'WinDepend' folder and put it in the root folder of Cataclysm project.
 
-[http://www.libsdl.org/release/SDL2-devel-2.0.4-VC.zip](http://www.libsdl.org/release/SDL2-devel-2.0.4-VC.zip)
+### Lua
 
-[http://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-devel-2.0.14-VC.zip](http://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-devel-2.0.14-VC.zip)
+The next thing you need to do is to install lua. Download the appropriate x86 or x64 lua from [http://lua-users.org/wiki/LuaBinaries](http://lua-users.org/wiki/LuaBinaries), and extract it to `C:\Windows\System32` or somewhere else on your path.
 
-[http://www.libsdl.org/projects/SDL_image/release/SDL2_image-devel-2.0.1-VC.zip](http://www.libsdl.org/projects/SDL_image/release/SDL2_image-devel-2.0.1-VC.zip)
-
-[http://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-devel-2.0.1-VC.zip](http://www.libsdl.org/projects/SDL_mixer/release/SDL2_mixer-devel-2.0.1-VC.zip)
-
-#### libintl and libiconv
-
-There is a repo providing MSVC project files to build those two libraries. 
-
-[https://github.com/kahrl/gettext-msvc](https://github.com/kahrl/gettext-msvc)
-
-#### Lua
-
-Download and extract lua source code. The source of lua can be obtained from [https://www.lua.org/download.html](https://www.lua.org/download.html). Open a Visual Studio Command Prompt, switch to `src` directory in lua source code and excute the following commands:
-
-```
-cl /MD /O2 /c *.c
-del lua.obj luac.obj
-lib -out:Lua.lib *.obj
-```
-
-Then, we get the static library `Lua.lib`.
+Once you have it installed, go to the project directory, then go to `src/lua`, and run `lua53 generate_bindings.lua catabindings.cpp`. This will generate the `catabindings.cpp` file which is necessary for compilation.
 
 ### Building
 

@@ -12,6 +12,7 @@
 #include "mtype.h"
 #include "weather.h"
 #include "shadowcasting.h"
+#include "messages.h"
 
 #include <cmath>
 #include <cstring>
@@ -22,6 +23,7 @@
 #define LIGHTMAP_CACHE_Y SEEY * MAPSIZE
 
 const efftype_id effect_onfire( "onfire" );
+const efftype_id effect_haslight( "haslight" );
 
 constexpr double PI     = 3.14159265358979323846;
 constexpr double HALFPI = 1.57079632679489661923;
@@ -57,7 +59,7 @@ void map::build_transparency_cache( const int zlev )
 
     // Default to just barely not transparent.
     std::uninitialized_fill_n(
-        &transparency_cache[0][0], MAPSIZE*SEEX * MAPSIZE*SEEY, LIGHT_TRANSPARENCY_OPEN_AIR);
+        &transparency_cache[0][0], MAPSIZE*SEEX * MAPSIZE*SEEY, static_cast<float>( LIGHT_TRANSPARENCY_OPEN_AIR ) );
 
     // Traverse the submaps in order
     for( int smx = 0; smx < my_MAPSIZE; ++smx ) {
@@ -128,11 +130,21 @@ void map::build_transparency_cache( const int zlev )
     map_cache.transparency_cache_dirty = false;
 }
 
-void map::apply_character_light( const player &p )
+void map::apply_character_light( player &p )
 {
+    if( p.has_effect( effect_onfire ) ) {
+        apply_light_source( p.pos(), 8 );
+    } else if( p.has_effect( effect_haslight ) ) {
+        apply_light_source( p.pos(), 4 );
+    }
+
     float const held_luminance = p.active_light();
     if( held_luminance > LIGHT_AMBIENT_LOW ) {
         apply_light_source( p.pos(), held_luminance );
+    }
+
+    if( held_luminance >= 4 && held_luminance > ambient_light_at( p.pos() ) - 0.5f ) {
+        p.add_effect( effect_haslight, 1 );
     }
 }
 
@@ -157,9 +169,9 @@ void map::generate_lightmap( const int zlev )
     auto &light_source_buffer = map_cache.light_source_buffer;
     std::memset(light_source_buffer, 0, sizeof(light_source_buffer));
 
-    constexpr int dir_x[] = {  0, -1 , 1, 0 };   //    [0]
-    constexpr int dir_y[] = { -1,  0 , 0, 1 };   // [1][X][2]
-    constexpr int dir_d[] = { 90, 0, 180, 270 }; //    [3]
+    constexpr std::array<int, 4> dir_x = {{  0, -1 , 1, 0 }};   //    [0]
+    constexpr std::array<int, 4> dir_y = {{ -1,  0 , 0, 1 }};   // [1][X][2]
+    constexpr std::array<int, 4> dir_d = {{ 90, 0, 180, 270 }}; //    [3]
 
     const float natural_light  = g->natural_light_level( zlev );
     const float inside_light = (natural_light > LIGHT_SOURCE_BRIGHT) ?
@@ -366,7 +378,7 @@ void map::generate_lightmap( const int zlev )
     }
 
 
-    if (g->u.has_active_bionic("bio_night") ) {
+    if (g->u.has_active_bionic( bionic_id( "bio_night" ) ) ) {
         for( const tripoint &p : points_in_rectangle( cache_start, cache_end ) ) {
             if( rl_dist( p, g->u.pos() ) < 15 ) {
                 lm[p.x][p.y] = LIGHT_AMBIENT_MINIMAL;
@@ -460,8 +472,6 @@ bool map::pl_line_of_sight( const tripoint &t, const int max_range ) const
     // Any epsilon > 0 is fine - it means lightmap processing visited the point
     return map_cache.seen_cache[t.x][t.y] > 0.0f;
 }
-
-#include "messages.h"
 
 template<int xx, int xy, int xz, int yx, int yy, int yz, int zz,
          float(*calc)(const float &, const float &, const int &),
@@ -656,9 +666,8 @@ void cast_zlight(
  * field of view, whereas a value equal to or above 1 means that cell is
  * in the field of view.
  *
- * @param startx the horizontal component of the starting location
- * @param starty the vertical component of the starting location
- * @param radius the maximum distance to draw the FOV
+ * @param origin the starting location
+ * @param target_z Z-level to draw light map on
  */
 void map::build_seen_cache( const tripoint &origin, const int target_z )
 {
@@ -666,8 +675,9 @@ void map::build_seen_cache( const tripoint &origin, const int target_z )
     float (&transparency_cache)[MAPSIZE*SEEX][MAPSIZE*SEEY] = map_cache.transparency_cache;
     float (&seen_cache)[MAPSIZE*SEEX][MAPSIZE*SEEY] = map_cache.seen_cache;
 
+    constexpr float light_transparency_solid = LIGHT_TRANSPARENCY_SOLID;
     std::uninitialized_fill_n(
-        &seen_cache[0][0], MAPSIZE*SEEX * MAPSIZE*SEEY, LIGHT_TRANSPARENCY_SOLID);
+        &seen_cache[0][0], MAPSIZE*SEEX * MAPSIZE*SEEY, light_transparency_solid );
 
     if( !fov_3d ) {
         seen_cache[origin.x][origin.y] = LIGHT_TRANSPARENCY_CLEAR;

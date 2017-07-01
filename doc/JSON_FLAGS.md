@@ -60,7 +60,7 @@ Example: `-` and `|` is terrain with the `CONNECT_TO_WALL` flag, `O` does not ha
 - ```CONTAINER``` Items on this square are hidden until looted by the player.
 - ```DECONSTRUCT``` Can be deconstructed.
 - ```DEEP_WATER```
-- ```DESTROY_ITEM``` Items that land here are destroyed.
+- ```DESTROY_ITEM``` Items that land here are destroyed. See also NOITEM
 - ```DIGGABLE``` Digging monsters, seeding monster, digging with shovel, etc.
 - ```DOOR``` Can be opened (used for NPC path-finding).
 - ```EXPLODES``` Explodes when on fire.
@@ -79,7 +79,7 @@ Example: `-` and `|` is terrain with the `CONNECT_TO_WALL` flag, `O` does not ha
 - ```MINEABLE``` Can be mined with a pickaxe/jackhammer.
 - ```MOUNTABLE``` Suitable for guns with the "MOUNTED_GUN" flag.
 - ```NOCOLLIDE``` Feature that simply doesn't collide with vehicles at all.
-- ```NOITEM``` Items 'fall off' this space.
+- ```NOITEM``` Items cannot be added here but may overflow to adjacent tiles. See also DESTROY_ITEM
 - ```NO_FLOOR```
 - ```OPENCLOSE_INSIDE``` If it's a door (with an 'open' or 'close' field), it can only be opened or closed if you're inside.
 - ```PAINFUL``` May cause a small amount of pain.
@@ -262,6 +262,7 @@ Flags used to describe monsters and define their properties and abilities.
 - ```QUEEN``` When it dies, local populations start to die off too.
 - ```REGENERATES_10``` Monster regenerates quickly over time.
 - ```REGENERATES_50``` Monster regenerates very quickly over time.
+- ```REGENERATES_IN_DARK``` Monster regenerates very quickly in poorly lit tiles.
 - ```REGEN_MORALE``` Will stop fleeing if at max hp, and regen anger and morale.
 - ```REVIVES``` Monster corpse will revive after a short period of time.
 - ```SEES``` It can see you (and will run/follow).
@@ -442,7 +443,6 @@ These branches are also the valid entries for the categories of `dreams` in `dre
 - ```FOLDABLE```
 - ```FORGE``` Acts as a forge for crafting.
 - ```FRIDGE``` Can refrigerate items.
-- ```FUEL_TANK``` Storage device for a fuel type.
 - ```FUNNEL```
 - ```HORN``` Generates noise when used.
 - ```INITIAL_PART``` When starting a new vehicle via the construction menu, this vehicle part will be the initial part of the vehicle (if the used item matches the item required for this part). The items of parts with this flag are automatically added as component to the vehicle start construction.
@@ -471,6 +471,7 @@ These branches are also the valid entries for the categories of `dreams` in `dre
 - ```REAPER``` Cuts down mature crops, depositing them on the square.
 - ```RECHARGE``` Recharge items with the same flag. ( Currently only the rechargeable battery mod. )
 - ```REMOTE_CONTROLS```
+- ```REVERSIBLE``` Removal has identical requirements to installation but is twice as quick
 - ```ROOF``` Covers a section of the vehicle. Areas of the vehicle that have a roof and roofs on surrounding sections, are considered inside. Otherwise they're outside.
 - ```SCOOP``` Pulls items from underneath the vehicle to the cargo space of the part. Also mops up liquids.
 - ```SEAT``` A seat where the player can sit or sleep.
@@ -780,27 +781,24 @@ Some armor flags, such as `WATCH` and `ALARMCLOCK` are compatible with other ite
 ### Flags
 
 - ```ALWAYS_TWOHAND``` Item is always wielded with two hands. Without this, the items volume and weight are used to calculate this.
-- ```BAYONET``` If the item is attached to a gun (as gunmod), the gun will use the cutting damage from the mod instead of its own.
-- ```CHOP``` Does cutting damage, with a high chance of getting stuck.
-- ```MESSY``` Resistant to getting stuck in a monster. Potentially cause more gore in the future?
-- ```NON_STUCK``` Resistant to getting stuck in a monster; not as large of an effect as `MESSY`.
+- ```DIAMOND``` Diamond coating adds 30% bonus to cutting and piercing damage
+- ```MESSY``` Creates more mess when pulping
+- ```NO_CVD``` Item can never be used with a CVD machine
 - ```NO_RELOAD``` Item can never be reloaded (even if has a valid ammo type).
 - ```NO_UNWIELD``` Cannot unwield this item.
 - ```REACH_ATTACK``` Allows to perform reach attack.
-- ```SLICE``` Deals cutting damage, with a low chance of getting stuck.
 - ```SHEATH_KNIFE``` Item can be sheathed in a knife sheath, it applicable to small/medium knives (with volume not bigger than 2)
 - ```SHEATH_SWORD``` Item can be sheathed in a sword scabbard
-- ```SPEAR``` Deals stabbing damage, with a moderate chance of getting stuck. The `SPEAR` flag is synonymous with the `STAB` flag.
-- ```STAB``` Deals stabbing damage, with a moderate chance of getting stuck. The `STAB` flag is synonymous with the `SPEAR` flag.
+- ```SPEAR``` When making reach attacks intervening THIN_OBSTACLE terrain is not an obstacle
 - ```UNARMED_WEAPON``` Wielding this item still counts as unarmed combat.
 - ```WHIP``` Has a chance of disarming the opponent.
 
 ## Guns
 
 - ```BACKBLAST``` Causes a small explosion behind the person firing the weapon. Currently not implemented?
-- ```BIPOD``` Handling bonus only applies on MOUNTABLE map/vehicle tiles
+- ```BIPOD``` Handling bonus only applies on MOUNTABLE map/vehicle tiles. Does not include wield time penalty (see SLOW_WIELD).
 - ```CHARGE``` Has to be charged to fire. Higher charges do more damage.
-- ```COLLAPSIBLE_STOCK``` Reduces weapon volume proportional to the base size of the gun excluding any mods (see also SLOW_WIELD).
+- ```COLLAPSIBLE_STOCK``` Reduces weapon volume proportional to the base size of the gun (excluding any mods). Does not include wield time penalty (see NEEDS_UNFOLD).
 - ```DISABLE_SIGHTS``` Prevents use of the base weapon sights
 - ```FIRE_50``` Uses 50 shots per firing.
 - ```FIRE_100``` Uses 100 shots per firing.
@@ -848,7 +846,7 @@ Melee flags are fully compatible with tool flags, and vice versa.
 - ```HAS_RECIPE``` Used by the E-Ink tablet to indicates it's currently showing a recipe.
 - ```LIGHT_[X]``` Illuminates the area with light intensity `[X]` where `[X]` is an intensity value. (e.x. `LIGHT_4` or `LIGHT_100`).
 - ```MC_MOBILE```, ```MC_RANDOM_STUFF```, ```MC_SCIENCE_STUFF```, ```MC_USED```, ```MC_HAS_DATA``` Memory card related flags, see `iuse.cpp`
-- ```NO_DROP``` An item with this flag should never actually be dropped. Used internally to signal that an item was created, but that it is unwanted. Needless to say, don't use this in an item definition.
+- ```NO_DROP``` Item should never exist on map tile as a discrete item (must be contained by another item)
 - ```NO_UNLOAD``` Cannot be unloaded.
 - ```RADIOCARITEM``` Item can be put into a remote controlled car.
 - ```RADIOSIGNAL_1``` Activated per radios signal 1.
@@ -866,9 +864,7 @@ Melee flags are fully compatible with tool flags, and vice versa.
 ### Flags that apply to items, not to item types.
 Those flags are added by the game code to specific items (that specific welder, not *all* welders).
 
-- ```ATOMIC_AMMO``` The tool has the atomic mod and runs on plutonium instead of normal batteries.
 - ```COLD``` Item is cold (see EATEN_COLD).
-- ```DOUBLE_AMMO``` The tool has the double battery mod and has its max_charges doubled.
 - ```FIT``` Reduces encumbrance by one.
 - ```HOT``` Item is hot (see EATEN_HOT).
 - ```LITCIG``` Marks a lit smoking item (cigarette, joint etc.).
@@ -973,8 +969,6 @@ Those flags are added by the game code to specific items (that specific welder, 
 - ```MP3_ON``` Turn the mp3 player off.
 - ```NOISE_EMITTER_OFF``` Turn the noise emitter on.
 - ```NOISE_EMITTER_ON``` Turn the noise emitter off.
-- ```PDA``` Use your pda.
-- ```PDA_FLASHLIGHT``` Use your pda as a flashlight.
 - ```PHEROMONE``` Makes zombies love you.
 - ```PICKAXE``` Does nothing but berate you for having it (I'm serious).
 - ```PICKLOCK``` Attempt to pick the lock on doors.
@@ -1029,6 +1023,7 @@ Those flags are added by the game code to specific items (that specific welder, 
 - ```GAS_DISCOUNT``` ... Discount cards for the automated gas stations.
 - ```LEAK_ALWAYS``` ... Leaks (may be combined with "RADIOACTIVE").
 - ```LEAK_DAM``` ... Leaks when damaged (may be combined with "RADIOACTIVE").
+- ```NEEDS_UNFOLD``` ... Has an additional time penalty upon wielding. For melee weapons and guns this is offset by the relevant skill. Stacks with "SLOW_WIELD".
 - ```NO_PICKUP``` ... Character can not pickup anything while wielding this item (e.g. bionic claws).
 - ```NO_SALVAGE``` Item cannot be broken down through a salvage process. Best used when something should not be able to be broken down (i.e. base components like leather patches).
 - ```PSEUDO``` ... Used internally to mark items that are referred to in the crafting inventory but are not actually items. They can be used as tools, but not as components. Implies "TRADER_AVOID".
@@ -1036,11 +1031,12 @@ Those flags are added by the game code to specific items (that specific welder, 
 - ```RAIN_PROTECT``` ... Protects from sunlight and from rain, when wielded.
 - ```REDUCED_BASHING``` ... Gunmod flag; reduces the item's bashing damage by 50%.
 - ```REDUCED_WEIGHT``` ... Gunmod flag; reduces the item's base weight by 25%.
-- ```SLOW_WIELD``` ... Has an additional time penalty upon wielding. For melee weapons and guns this is offset by the relevant skill.
+- ```SLOW_WIELD``` ... Has an additional time penalty upon wielding. For melee weapons and guns this is offset by the relevant skill. Stacks with "NEEDS_UNFOLD".
 - ```TRADER_AVOID``` ... NPCs will not start with this item. Use this for active items (e.g. flashlight (on)), dangerous items (e.g. active bomb), fake item or unusual items (e.g. unique quest item).
 - ```UNBREAKABLE_MELEE``` ... Does never get damaged when used as melee weapon.
 - ```UNRECOVERABLE``` Cannot be recovered from a disassembly.
 - ```DANGEROUS``` ... NPCs will not accept this item. Explosion iuse actor implies this flag. Implies "NPC_THROW_NOW".
+- ```NO_REPAIR``` ... Prevents repairing of this item even if otherwise suitable tools exist.
 - ```NPC_THROW_NOW``` ... NPCs will try to throw this item away, preferably at enemies. Implies "TRADER_AVOID" and "NPC_THROWN".
 - ```NPC_ACTIVATE``` ... NPCs can activate this item as an alternative attack. Currently by throwing it right after activation. Implied by "BOMB".
 - ```NPC_THROWN``` ... NPCs will throw this item (without activating it first) as an alternative attack.
@@ -1050,7 +1046,8 @@ Those flags are added by the game code to specific items (that specific welder, 
 
 ### Tags
 
-- ```"gun_types"``` Define gun related skills?
+- ```combat_skill``` The skill is considered a combat skill. It's affected by "PACIFIST", "PRED1", "PRED2", "PRED3", and "PRED4" traits.
+- ```contextual_skill``` The skill is abstract, it depends on context (an indirect item to which it's applied). Neither player nor NPCs can possess it.
 
 ## Scenarios
 
@@ -1064,6 +1061,18 @@ Those flags are added by the game code to specific items (that specific welder, 
 - ```SUM_START``` ... start in summer.
 - ```SUR_START``` ... surrounded start, zombies outside the starting shelter.
 - ```WIN_START``` ... start in winter.
+
+## Overmap terrains
+
+### Flags
+
+- ```ALLOW_OVERRIDE``` The terrain can be overriden during mapgen (e.g. with a road tile).
+- ```KNOWN_DOWN``` There's a known way down.
+- ```KNOWN_UP``` There's a known way up.
+- ```LINEAR``` For roads etc, which use ID_straight, ID_curved, ID_tee, ID_four_way.
+- ```NO_ROTATE``` The terrain can't be rotated (ID_north, ID_east, ID_south, and ID_west instances will NOT be generated, just ID).
+- ```RIVER``` It's a river tile.
+- ```SIDEWALK``` Has sidewalks on the sides adjacent to roads.
 
 ## TODO
 

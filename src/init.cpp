@@ -4,6 +4,7 @@
 #include "filesystem.h"
 
 // can load from json
+#include "activity_type.h"
 #include "flag.h"
 #include "effect.h"
 #include "emit.h"
@@ -56,7 +57,12 @@
 #include "worldfactory.h"
 #include "weather_gen.h"
 #include "npc_class.h"
+#include "recipe_dictionary.h"
+#include "rotatable_symbols.h"
+#include "harvest.h"
+#include "morale_types.h"
 
+#include <assert.h>
 #include <string>
 #include <vector>
 #include <fstream>
@@ -86,7 +92,37 @@ void DynamicDataLoader::load_object( JsonObject &jo, const std::string &src )
     it->second( jo, src );
 }
 
-void load_ingored_type(JsonObject &jo)
+void DynamicDataLoader::load_deferred( deferred_json& data )
+{
+    while( !data.empty() ) {
+        const size_t n = data.size();
+        auto it = data.begin();
+        for( size_t idx = 0; idx != n; ++idx ) {
+            try {
+                std::istringstream str( it->first );
+                JsonIn jsin( str );
+                JsonObject jo = jsin.get_object();
+                load_object( jo, it->second );
+            } catch( const std::exception &err ) {
+                debugmsg( "Error loading data from json: %s", err.what() );
+            }
+            ++it;
+        }
+        data.erase( data.begin(), it );
+        if( data.size() == n ) {
+            std::ostringstream discarded;
+            for( const auto &elem : data ) {
+                discarded << elem.first;
+            }
+            debugmsg( "JSON contains circular dependency. Discarded %i objects:\n%s",
+                      data.size(), discarded.str().c_str() );
+            data.clear();
+            return; // made no progress on this cycle so abort
+        }
+    }
+}
+
+void load_ignored_type(JsonObject &jo)
 {
     // This does nothing!
     // This function is used for types that are to be ignored
@@ -118,10 +154,12 @@ void DynamicDataLoader::initialize()
     add( "json_flag", &json_flag::load );
     add( "fault", &fault::load_fault );
     add( "emit", &emit::load_emit );
+    add( "activity_type", &activity_type::load );
     add( "vitamin", &vitamin::load_vitamin );
     add( "material", &materials::load );
     add( "bionic", &load_bionic );
     add( "profession", &profession::load_profession );
+    add( "profession_item_substitutions", &profession::load_item_substitutions );
     add( "skill", &Skill::load_skill );
     add( "dream", &load_dream );
     add( "mutation_category", &load_mutation_category );
@@ -149,18 +187,20 @@ void DynamicDataLoader::initialize()
     add( "vehicle_spawn",  &VehicleSpawn::load );
 
     add( "requirement", []( JsonObject &jo ) { requirement_data::load_requirement( jo ); } );
-    add( "trap", &trap::load );
+    add( "trap", &trap::load_trap );
 
     add( "AMMO", []( JsonObject &jo, const std::string &src ) { item_controller->load_ammo( jo, src ); } );
     add( "GUN", []( JsonObject &jo, const std::string &src ) { item_controller->load_gun( jo, src ); } );
     add( "ARMOR", []( JsonObject &jo, const std::string &src ) { item_controller->load_armor( jo, src ); } );
     add( "TOOL", []( JsonObject &jo, const std::string &src ) { item_controller->load_tool( jo, src ); } );
+    add( "TOOLMOD", []( JsonObject &jo, const std::string &src ) { item_controller->load_toolmod( jo, src ); } );
     add( "TOOL_ARMOR", []( JsonObject &jo, const std::string &src ) { item_controller->load_tool_armor( jo, src ); } );
     add( "BOOK", []( JsonObject &jo, const std::string &src ) { item_controller->load_book( jo, src ); } );
     add( "COMESTIBLE", []( JsonObject &jo, const std::string &src ) { item_controller->load_comestible( jo, src ); } );
     add( "CONTAINER", []( JsonObject &jo, const std::string &src ) { item_controller->load_container( jo, src ); } );
     add( "ENGINE", []( JsonObject &jo, const std::string &src ) { item_controller->load_engine( jo, src ); } );
     add( "WHEEL", []( JsonObject &jo, const std::string &src ) { item_controller->load_wheel( jo, src ); } );
+    add( "FUEL", []( JsonObject &jo, const std::string &src ) { item_controller->load_fuel( jo, src ); } );
     add( "GUNMOD", []( JsonObject &jo, const std::string &src ) { item_controller->load_gunmod( jo, src ); } );
     add( "MAGAZINE", []( JsonObject &jo, const std::string &src ) { item_controller->load_magazine( jo, src ); } );
     add( "GENERIC", []( JsonObject &jo, const std::string &src ) { item_controller->load_generic( jo, src ); } );
@@ -169,33 +209,32 @@ void DynamicDataLoader::initialize()
     add( "ITEM_CATEGORY", []( JsonObject &jo ) { item_controller->load_item_category( jo ); } );
     add( "MIGRATION", []( JsonObject &jo ) { item_controller->load_migration( jo ); } );
 
-    add( "MONSTER", []( JsonObject &jo ) { MonsterGenerator::generator().load_monster( jo ); } );
-    add( "SPECIES", []( JsonObject &jo ) { MonsterGenerator::generator().load_species( jo ); } );
+    add( "MONSTER", []( JsonObject &jo, const std::string &src ) { MonsterGenerator::generator().load_monster( jo, src ); } );
+    add( "SPECIES", []( JsonObject &jo, const std::string &src ) { MonsterGenerator::generator().load_species( jo, src ); } );
 
     add( "recipe_category", &load_recipe_category );
-    add( "recipe",  []( JsonObject &jo, const std::string &src ) { load_recipe( jo, src, false ); } );
-    add( "uncraft", []( JsonObject &jo, const std::string &src ) { load_recipe( jo, src, true  ); } );
+    add( "recipe",  &recipe_dictionary::load_recipe );
+    add( "uncraft", &recipe_dictionary::load_uncraft );
 
     add( "tool_quality", &quality::load_static );
     add( "technique", &load_technique );
     add( "martial_art", &load_martial_art );
     add( "effect_type", &load_effect_type );
     add( "tutorial_messages", &load_tutorial_messages );
-    add( "overmap_terrain", &load_overmap_terrain );
+    add( "overmap_terrain", &overmap_terrains::load );
     add( "construction", &load_construction );
     add( "mapgen", &load_mapgen );
-    add( "overmap_special", &load_overmap_specials );
+    add( "overmap_special", &overmap_specials::load );
 
     add( "region_settings", &load_region_settings );
     add( "region_overlay", &load_region_overlay );
     add( "ITEM_BLACKLIST", []( JsonObject &jo ) { item_controller->load_item_blacklist( jo ); } );
-    add( "ITEM_WHITELIST", []( JsonObject &jo ) { item_controller->load_item_whitelist( jo ); } );
     add( "WORLD_OPTION", &load_world_option );
 
     // loaded earlier.
-    add( "colordef", &load_ingored_type );
+    add( "colordef", &load_ignored_type );
     // mod information, ignored, handled by the mod manager
-    add( "MOD_INFO", &load_ingored_type );
+    add( "MOD_INFO", &load_ignored_type );
 
     add( "faction", &faction::load_faction );
     add( "npc", &npc::load_npc );
@@ -208,13 +247,21 @@ void DynamicDataLoader::initialize()
     add( "sound_effect", &sfx::load_sound_effects );
     add( "playlist", &sfx::load_playlist );
 
-    add( "gate", &gates::load_gates );
+    add( "gate", &gates::load );
     add( "overlay_order", &load_overlay_ordering );
-    add( "mission_definition", []( JsonObject &jo ) { mission_type::load_mission_type( jo ); } );
+    add( "mission_definition", []( JsonObject &jo, const std::string &src ) { mission_type::load_mission_type( jo, src ); } );
+    add( "harvest", []( JsonObject &jo, const std::string &src ) { harvest_list::load( jo, src ); } );
+
+    add( "monster_attack", []( JsonObject &jo, const std::string &src ) { MonsterGenerator::generator().load_monster_attack( jo, src ); } );
+    add( "palette", mapgen_palette::load );
+    add( "rotatable_symbol", &rotatable_symbols::load );
+    add( "body_part", &body_part_struct::load );
+    add( "morale_type", &morale_type_data::load_type );
 }
 
 void DynamicDataLoader::load_data_from_path( const std::string &path, const std::string &src )
 {
+    assert( !finalized && "Can't load additional data after finalization. Must be unloaded first." );
     // We assume that each folder is consistent in itself,
     // and all the previously loaded folders.
     // E.g. the core might provide a vpart "frame-x"
@@ -288,10 +335,13 @@ void init_names()
 
 void DynamicDataLoader::unload_data()
 {
+    finalized = false;
+
     json_flag::reset();
     requirement_data::reset();
     vitamin::reset();
     emit::reset();
+    activity_type::reset();
     fault::reset();
     materials::reset();
     profession::reset();
@@ -315,16 +365,16 @@ void DynamicDataLoader::unload_data()
     vpart_info::reset();
     MonsterGenerator::generator().reset();
     reset_recipe_categories();
-    reset_recipes();
+    recipe_dictionary::reset();
     quality::reset();
     trap::reset();
     reset_constructions();
-    reset_overmap_terrain();
+    overmap_terrains::reset();
     reset_region_settings();
     reset_mapgens();
     reset_effect_types();
     reset_speech();
-    clear_overmap_specials();
+    overmap_specials::reset();
     ammunition_type::reset();
     unload_talk_topics();
     start_location::reset();
@@ -332,6 +382,8 @@ void DynamicDataLoader::unload_data()
     gates::reset();
     reset_overlay_ordering();
     npc_class::reset_npc_classes();
+    rotatable_symbols::reset();
+    body_part_struct::reset();
 
     // TODO:
     //    NameGenerator::generator().clear_names();
@@ -340,23 +392,30 @@ void DynamicDataLoader::unload_data()
 extern void calculate_mapgen_weights();
 void DynamicDataLoader::finalize_loaded_data()
 {
+    assert( !finalized && "Can't finalize the data twice." );
+
+    body_part_struct::finalize();
     item_controller->finalize();
+    requirement_data::finalize();
     vpart_info::finalize();
     set_ter_ids();
     set_furn_ids();
-    set_oter_ids();
     trap::finalize();
-    finalize_overmap_terrain();
+    overmap_terrains::finalize();
+    overmap_specials::finalize();
     vehicle_prototype::finalize();
     calculate_mapgen_weights();
     MonsterGenerator::generator().finalize_mtypes();
     MonsterGroupManager::FinalizeMonsterGroups();
     monfactions::finalize();
-    finalize_recipes();
+    recipe_dictionary::finalize();
     finialize_martial_arts();
     finalize_constructions();
     npc_class::finalize_all();
+    harvest_list::finalize_all();
     check_consistency();
+
+    finalized = true;
 }
 
 void DynamicDataLoader::check_consistency()
@@ -365,21 +424,27 @@ void DynamicDataLoader::check_consistency()
     requirement_data::check_consistency();
     vitamin::check_consistency();
     emit::check_consistency();
+    activity_type::check_consistency();
     item_controller->check_definitions();
     materials::check();
     fault::check_consistency();
     vpart_info::check();
     MonsterGenerator::generator().check_monster_definitions();
     MonsterGroupManager::check_group_definitions();
-    check_recipe_definitions();
     check_furniture_and_terrain();
     check_constructions();
     profession::check_definitions();
     scenario::check_definitions();
     check_martialarts();
     mutation_branch::check_consistency();
+    overmap_terrains::check_consistency();
+    overmap_specials::check_consistency();
     ammunition_type::check_consistency();
     trap::check_consistency();
     check_bionics();
+    gates::check();
     npc_class::check_consistency();
+    mission_type::check_consistency();
+    item_action_generator::generator().check_consistency();
+    harvest_list::check_consistency();
 }

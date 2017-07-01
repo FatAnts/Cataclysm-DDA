@@ -1,6 +1,78 @@
 [
     {
         "type" : "keybinding",
+        "id": "SCROLL_UP",
+        "category": "UIMENU",
+        "name": "Scroll up",
+        "bindings":[
+            {
+                "input_method":"mouse",
+                "key":"SCROLL_UP"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id": "SCROLL_DOWN",
+        "category": "UIMENU",
+        "name": "Scroll down",
+        "bindings":[
+            {
+                "input_method":"mouse",
+                "key":"SCROLL_DOWN"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id":"UP",
+        "category": "UIMENU",
+        "name":"Pan up",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"UP"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id":"DOWN",
+        "category": "UIMENU",
+        "name":"Pan down",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"DOWN"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id" : "FILTER",
+        "category" : "UIMENU",
+        "name" : "Filter",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"/"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id": "QUIT",
+        "category": "UIMENU",
+        "name": "Cancel menu",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"ESC"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
         "id":"UP",
         "name":"Pan up",
         "bindings":[
@@ -454,6 +526,18 @@
             {
                 "input_method":"keyboard",
                 "key":"S"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id": "ADD_DEFAULT_RULESET",
+        "category": "SAFEMODE",
+        "name": "Add default ruleset",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"~"
             }
         ]
     },
@@ -1254,6 +1338,17 @@
     },
     {
         "type" : "keybinding",
+        "id":"SWITCH_AMMO",
+        "name":"Switch ammo",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"o"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
         "id":"SWITCH_MODE",
         "name":"Switch Firing Mode",
         "bindings":[
@@ -1334,6 +1429,17 @@
             {
                 "input_method":"keyboard",
                 "key":"f"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id":"EXTENDED_DESCRIPTION",
+        "name":"Show extended description",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"e"
             }
         ]
     },
@@ -1613,6 +1719,15 @@
     },
     {
         "type" : "keybinding",
+        "id": "ASSIGN_CREW",
+        "category": "VEH_INTERACT",
+        "name": "Assign crew",
+        "bindings":[
+            { "input_method":"keyboard", "key":"w" }
+        ]
+    },
+    {
+        "type" : "keybinding",
         "id": "RELABEL",
         "category": "VEH_INTERACT",
         "name": "Relabel a portion of a vehicle",
@@ -1860,7 +1975,7 @@
     { "type":"keybinding", "name": "Disassemble items", "category":"DEFAULTMODE", "id":"disassemble", "bindings":[ { "input_method":"keyboard", "key":"(" } ] },
     { "type":"keybinding", "name": "Sleep", "category":"DEFAULTMODE", "id":"sleep", "bindings":[ { "input_method":"keyboard", "key":"$" } ] },
     { "type":"keybinding", "name": "Control Vehicle", "category":"DEFAULTMODE", "id":"control_vehicle", "bindings":[ { "input_method":"keyboard", "key":"^" } ] },
-    { "type":"keybinding", "name": "Toggle Safemode", "category":"DEFAULTMODE", "id":"safemode", "bindings":[ { "input_method":"keyboard", "key":"!" } ] },
+    { "type":"keybinding", "name": "Toggle Safe Mode", "category":"DEFAULTMODE", "id":"safemode", "bindings":[ { "input_method":"keyboard", "key":"!" } ] },
     { "type":"keybinding", "name": "Ignore Nearby Enemy", "category":"DEFAULTMODE", "id":"ignore_enemy", "bindings":[ { "input_method":"keyboard", "key":"'" } ] },
     { "type":"keybinding", "name": "Whitelist enemy", "category":"DEFAULTMODE", "id":"whitelist_enemy", "bindings":[ { "input_method":"keyboard", "key":"~" } ] },
     { "type":"keybinding", "name": "Save and Quit", "category":"DEFAULTMODE", "id":"save", "bindings":[ { "input_method":"keyboard", "key":"S" } ] },
@@ -1893,6 +2008,12 @@
     { "type":"keybinding", "name": "Craft as long as possible", "category":"DEFAULTMODE", "id":"long_craft" },
     { "type":"keybinding", "name": "Toggle Auto-Safemode", "category":"DEFAULTMODE", "id":"autosafe" },
     { "type":"keybinding", "name": "Autoattack", "category":"DEFAULTMODE", "id":"autoattack", "bindings":[ { "input_method":"keyboard", "key":"TAB" } ] },
+    { "type":"keybinding", "name": "Main Menu", "category":"DEFAULTMODE", "id":"main_menu", "bindings":[ { "input_method":"keyboard", "key":"ESC" } ] },
+    { "type":"keybinding", "name": "Keybindings", "category":"DEFAULTMODE", "id":"open_keybindings" },
+    { "type":"keybinding", "name": "Options", "category":"DEFAULTMODE", "id":"open_options" },
+    { "type":"keybinding", "name": "Autopickup manager", "category":"DEFAULTMODE", "id":"open_autopickup" },
+    { "type":"keybinding", "name": "Safe Mode manager", "category":"DEFAULTMODE", "id":"open_safemode" },
+    { "type":"keybinding", "name": "Color manager", "category":"DEFAULTMODE", "id":"open_color" },
     {
       "type":"keybinding",
       "name": "Toggle move mode (run/walk)",
@@ -2707,37 +2828,34 @@
     },
     {
         "type" : "keybinding",
-        "id": "KNIFE",
-        "category": "ITEM_ACTIONS",
-        "name": "Knife",
-        "bindings":[
-            {
-                "input_method":"keyboard",
-                "key":"k"
-            }
-        ]
-    },
-    {
-        "type" : "keybinding",
-        "id": "VITAMINS",
-        "category": "ITEM_ACTIONS",
-        "name": "Vitamins",
-        "bindings":[
-            {
-                "input_method":"keyboard",
-                "key":"v"
-            }
-        ]
-    },
-    {
-        "type" : "keybinding",
         "id": "repair_metal",
         "category": "ITEM_ACTIONS",
-        "name": "Solder/Weld",
         "bindings":[
             {
                 "input_method":"keyboard",
                 "key":"w"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id": "firestarter",
+        "category": "ITEM_ACTIONS",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"f"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id": "holster",
+        "category": "ITEM_ACTIONS",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"h"
             }
         ]
     },

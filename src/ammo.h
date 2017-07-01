@@ -1,3 +1,4 @@
+#pragma once
 #ifndef AMMO_H
 #define AMMO_H
 
@@ -20,6 +21,7 @@ class ammunition_type
             return default_ammotype_;
         }
     private:
+        // Localized name
         std::string name_;
         std::string default_ammotype_;
 

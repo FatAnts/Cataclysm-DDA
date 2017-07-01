@@ -14,7 +14,7 @@
 #include "generic_factory.h"
 #include "worldfactory.h"
 #include "monstergenerator.h"
-#include "debug.h"
+#include "string_input_popup.h"
 
 #include <stdlib.h>
 #include <fstream>
@@ -30,7 +30,7 @@ safemode &get_safemode()
 
 void safemode::show()
 {
-    show( _( " SAFEMODE MANAGER " ), true );
+    show( _( " SAFE MODE MANAGER " ), true );
 }
 
 std::string safemode::npc_type_name()
@@ -134,6 +134,7 @@ void safemode::show( const std::string &custom_name_in, bool is_safemode_in )
     ctxt.register_action( "QUIT" );
     ctxt.register_action( "NEXT_TAB" );
     ctxt.register_action( "PREV_TAB" );
+    ctxt.register_action( "ADD_DEFAULT_RULESET" );
     ctxt.register_action( "ADD_RULE" );
     ctxt.register_action( "REMOVE_RULE" );
     ctxt.register_action( "COPY_RULE" );
@@ -157,7 +158,7 @@ void safemode::show( const std::string &custom_name_in, bool is_safemode_in )
                         ( tab == CHARACTER_TAB ) ? hilite( c_white ) : c_white, _( "[<Character>]" ) );
 
         locx = 55;
-        mvwprintz( w_header, 0, locx, c_white, _( "Safemode enabled:" ) );
+        mvwprintz( w_header, 0, locx, c_white, _( "Safe Mode enabled:" ) );
         locx += shortcut_print( w_header, 1, locx,
                                 ( ( get_option<bool>( "SAFEMODE" ) ) ? c_ltgreen : c_ltred ), c_white,
                                 ( ( get_option<bool>( "SAFEMODE" ) ) ? _( "True" ) : _( "False" ) ) );
@@ -183,6 +184,10 @@ void safemode::show( const std::string &custom_name_in, bool is_safemode_in )
         if( tab == CHARACTER_TAB && g->u.name.empty() ) {
             character_rules.clear();
             mvwprintz( w, 8, 15, c_white, _( "Please load a character first to use this page!" ) );
+        } else if( empty() ) {
+            mvwprintz( w, 8, 15, c_white, _( "Safe Mode manager currently inactive." ) );
+            mvwprintz( w, 9, 15, c_white, _( "Default rules are used. Add a rule to activate." ) );
+            mvwprintz( w, 10, 15, c_white, _( "Press ~ to add a default ruleset to get started." ) );
         }
 
         draw_scrollbar( w_border, line, content_height, current_tab.size(), 5 );
@@ -190,7 +195,7 @@ void safemode::show( const std::string &custom_name_in, bool is_safemode_in )
 
         calcStartPos( start_pos, line, content_height, current_tab.size() );
 
-        // display safemode
+        // display safe mode
         for( int i = start_pos; i < ( int )current_tab.size(); i++ ) {
             if( i >= start_pos &&
                 i < start_pos + std::min( content_height, static_cast<int>( current_tab.size() ) ) ) {
@@ -246,6 +251,10 @@ void safemode::show( const std::string &custom_name_in, bool is_safemode_in )
             if( line < 0 ) {
                 line = current_tab.size() - 1;
             }
+        } else if( action == "ADD_DEFAULT_RULESET" ) {
+            changes_made = true;
+            current_tab.push_back( rules_class( "*", true, false, Creature::A_HOSTILE, 0 ) );
+            line = current_tab.size() - 1;
         } else if( action == "ADD_RULE" ) {
             changes_made = true;
             current_tab.push_back( rules_class( "", true, false, Creature::A_HOSTILE,
@@ -284,19 +293,22 @@ void safemode::show( const std::string &custom_name_in, bool is_safemode_in )
                 fold_and_print( w_help, 1, 1, 999, c_white,
                                 _(
                                     "* is used as a Wildcard. A few Examples:\n"
-                                    "human          matches every NPC"
+                                    "\n"
+                                    "human          matches every NPC\n"
                                     "zombie         matches the monster name exactly\n"
                                     "acidic zo*     matches monsters beginning with 'acidic zo'\n"
                                     "*mbie          matches monsters ending with 'mbie'\n"
                                     "*cid*zo*ie     multiple * are allowed\n"
-                                    "AcI*zO*iE      case insensitive search\n"
-                                    "" )
+                                    "AcI*zO*iE      case insensitive search" )
                               );
 
                 draw_border( w_help );
                 wrefresh( w_help );
-                current_tab[line].rule = wildcard_trim_rule( string_input_popup( _( "Safemode Rule:" ),
-                                         30, current_tab[line].rule ) );
+                current_tab[line].rule = wildcard_trim_rule( string_input_popup()
+                                         .title( _( "Safe Mode Rule:" ) )
+                                         .width( 30 )
+                                         .text( current_tab[line].rule )
+                                         .query_string() );
             } else if( column == COLUMN_WHITE_BLACKLIST ) {
                 current_tab[line].whitelist = !current_tab[line].whitelist;
             } else if( column == COLUMN_ATTITUDE ) {
@@ -315,15 +327,15 @@ void safemode::show( const std::string &custom_name_in, bool is_safemode_in )
                         attitude = Creature::A_HOSTILE;
                 }
             } else if( column == COLUMN_PROXIMITY && !current_tab[line].whitelist ) {
-                const auto text = string_input_popup( _( "Proximity Distance (0=max viewdistance)" ),
-                                                      4,
-                                                      to_string( current_tab[line].proximity ),
-                                                      _( "Option: " ) + to_string( get_option<int>( "SAFEMODEPROXIMITY" ) ) +
-                                                      " " + get_options().get_option( "SAFEMODEPROXIMITY" ).getDefaultText(),
-                                                      "",
-                                                      3,
-                                                      true
-                                                    );
+                const auto text = string_input_popup()
+                                  .title( _( "Proximity Distance (0=max viewdistance)" ) )
+                                  .width( 4 )
+                                  .text( to_string( current_tab[line].proximity ) )
+                                  .description( _( "Option: " ) + to_string( get_option<int>( "SAFEMODEPROXIMITY" ) ) +
+                                                " " + get_options().get_option( "SAFEMODEPROXIMITY" ).getDefaultText() )
+                                  .max_length( 3 )
+                                  .only_digits( true )
+                                  .query_string();
                 if( text.empty() ) {
                     current_tab[line].proximity = get_option<int>( "SAFEMODEPROXIMITY" );
                 } else {
@@ -458,7 +470,7 @@ void safemode::test_pattern( const int tab_in, const int row_in )
 
         calcStartPos( start_pos, line, content_height, creature_list.size() );
 
-        // display safemode
+        // display safe mode
         for( int i = start_pos; i < ( int )creature_list.size(); i++ ) {
             if( i >= start_pos &&
                 i < start_pos + std::min( content_height, static_cast<int>( creature_list.size() ) ) ) {
@@ -502,7 +514,7 @@ void safemode::add_rule( const std::string &rule_in, const Creature::Attitude at
     create_rules();
 
     if( !get_option<bool>( "SAFEMODE" ) &&
-        query_yn( _( "Safemode is not enabled in the options. Enable it now?" ) ) ) {
+        query_yn( _( "Safe Mode is not enabled in the options. Enable it now?" ) ) ) {
         get_options().get_option( "SAFEMODE" ).setNext();
         get_options().save();
     }
@@ -590,8 +602,7 @@ rule_state safemode::check_monster( const std::string &creature_name_in,
     if( iter != safemode_rules.end() ) {
         const auto &tmp = ( iter->second )[( int )attitude_in];
         if( tmp.state == RULE_BLACKLISTED ) {
-            const int check_dist = ( tmp.proximity == 0 ) ? 50 : tmp.proximity;
-            if( proximity <= check_dist ) {
+            if( tmp.proximity == 0 || proximity <= tmp.proximity ) {
                 return RULE_BLACKLISTED;
             }
 
@@ -626,14 +637,10 @@ bool safemode::save( const bool is_character_in )
     if( is_character ) {
         file = world_generator->active_world->world_path + "/" + base64_encode(
                    g->u.name ) + ".sfm.json";
-        std::ifstream fin;
-
-        fin.open( ( world_generator->active_world->world_path + "/" +
-                    base64_encode( g->u.name ) + ".sav" ).c_str() );
-        if( !fin.is_open() ) {
+        if( !file_exist( world_generator->active_world->world_path + "/" +
+                         base64_encode( g->u.name ) + ".sav" ) ) {
             return true; //Character not saved yet.
         }
-        fin.close();
     }
 
     return write_to_file( file, [&]( std::ostream & fout ) {

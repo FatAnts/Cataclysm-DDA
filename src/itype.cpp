@@ -7,6 +7,13 @@
 
 #include <stdexcept>
 #include <algorithm>
+#include <cmath>
+
+std::string gunmod_location::name() const
+{
+    // Yes, currently the name is just the translated id.
+    return _( _id.c_str() );
+}
 
 std::string itype::nname( unsigned int const quantity ) const
 {

@@ -675,6 +675,7 @@
         "type" : "COMESTIBLE",
         "comestible_type" : "MED",
         "name" : "heroin",
+        "name_plural" : "heroin",
         "description" : "An extremely strong opioid narcotic derived from morphine.  Incredibly addictive, the risk of overdose is extreme, and the drug is contraindicated for nearly all medical purposes.",
         "weight" : 1,
         "volume" : 1,
@@ -838,7 +839,7 @@
         "weight" : 40,
         "volume" : 1,
         "price" : 0,
-        "material" : "powder",
+        "material" : "oil",
         "symbol" : "~",
         "color" : "yellow",
         "phase" : "liquid",
@@ -1099,6 +1100,7 @@
         "weight" : 40,
         "volume" : 1,
         "price" : 0,
+        "material" : "oil",
         "symbol" : "~",
         "color" : "yellow",
         "phase" : "liquid",
@@ -1207,10 +1209,31 @@
         }
     },
     {
+        "id" : "calcium_tablet",
+        "type" : "COMESTIBLE",
+        "comestible_type" : "MED",
+        "name" : "calcium tablet",
+        "description" : "White calcium tablets.  Widely used by elderly people with osteoporosis as a method to supplement calcium before the apocalypse.",
+        "weight" : 1,
+        "volume" : 1,
+        "price" : 400,
+        "price_postapoc": 4000,
+        "charges" : 20,
+        "stack_size" : 20,
+        "symbol" : "!",
+        "color" : "magenta",
+        "use_action" : {
+            "type" : "consume_drug",
+            "activation_message" : "You take the %s.",
+            "vitamins": [
+                [ "calcium", 75 ]
+            ]
+        }
+    },
+    {
         "id" : "gummy_vitamins",
         "copy-from": "vitamins",
         "type" : "COMESTIBLE",
-        "comestible_type" : "MED",
         "name" : "gummy vitamin",
         "description" : "Essential dietary nutrients conveniently packaged in a fruit-flavored chewy candy form.  An option of last resort when a balanced diet is not possible.  Excess use can cause hypervitaminosis.",
         "fun" : 4,

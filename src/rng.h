@@ -1,3 +1,4 @@
+#pragma once
 #ifndef RNG_H
 #define RNG_H
 
@@ -25,6 +26,8 @@ inline double rng_normal( double hi )
 {
     return rng_normal( 0.0, hi );
 }
+
+double normal_roll( double mean, double stddev );
 
 /**
  * Returns a random entry in the container.

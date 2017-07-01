@@ -24,12 +24,14 @@ namespace
 generic_factory<start_location> all_starting_locations( "starting location", "ident" );
 }
 
+/** @relates string_id */
 template<>
 const start_location &string_id<start_location>::obj() const
 {
     return all_starting_locations.obj( *this );
 }
 
+/** @relates string_id */
 template<>
 bool string_id<start_location>::is_valid() const
 {
@@ -66,12 +68,12 @@ const std::set<std::string> &start_location::flags() const
     return _flags;
 }
 
-void start_location::load_location( JsonObject &jsonobj )
+void start_location::load_location( JsonObject &jo, const std::string &src )
 {
-    all_starting_locations.load( jsonobj );
+    all_starting_locations.load( jo, src );
 }
 
-void start_location::load( JsonObject &jo )
+void start_location::load( JsonObject &jo, const std::string & )
 {
     mandatory( jo, was_loaded, "name", _name, translated_string_reader );
     mandatory( jo, was_loaded, "target", _target );
@@ -429,6 +431,7 @@ void start_location::handle_heli_crash( player &u ) const
             case 1:
             case 2:// Damage + Bleed
                 u.add_effect( effect_bleed, 60, bp_part );
+            /* fallthrough */
             case 3:
             case 4:
             case 5: { // Just damage

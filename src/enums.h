@@ -1,8 +1,10 @@
+#pragma once
 #ifndef ENUMS_H
 #define ENUMS_H
 
 #include <climits>
 #include <cassert>
+#include <ostream>
 
 #include "json.h" // (de)serialization for points
 
@@ -338,6 +340,11 @@ struct tripoint : public JsonSerializer, public JsonDeserializer {
         return *this;
     }
 };
+
+inline std::ostream &operator<<( std::ostream &os, const tripoint &pos )
+{
+    return os << pos.x << "," << pos.y << "," << pos.z;
+}
 
 // Make tripoint hashable so it can be used as an unordered_set or unordered_map key,
 // or a component of one.

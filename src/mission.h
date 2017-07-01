@@ -1,9 +1,9 @@
+#pragma once
 #ifndef MISSION_H
 #define MISSION_H
 
 #include <vector>
 #include <string>
-#include <unordered_map>
 
 #include "omdata.h"
 #include "itype.h"
@@ -24,7 +24,10 @@ enum npc_mission : int;
 using npc_class_id = string_id<npc_class>;
 using mission_type_id = string_id<mission_type>;
 
-std::string mission_dialogue(mission_type_id id, const std::string &state);
+namespace debug_menu
+{
+class mission_debug;
+}
 
 enum mission_origin {
     ORIGIN_NULL = 0,
@@ -32,13 +35,14 @@ enum mission_origin {
     ORIGIN_OPENER_NPC, // NPC comes up to you when the game starts
     ORIGIN_ANY_NPC,    // Any NPC
     ORIGIN_SECONDARY,  // Given at the end of another mission
+    ORIGIN_COMPUTER,   // Taken after reading investigation provoking entries in computer terminal
     NUM_ORIGIN
 };
 
 enum mission_goal {
     MGOAL_NULL = 0,
     MGOAL_GO_TO,             // Reach a certain overmap tile
-    MGOAL_GO_TO_TYPE,        // Instead of a point, go to an oter_id map tile like "hospital_entrance"
+    MGOAL_GO_TO_TYPE,        // Instead of a point, go to an oter_type_id map tile like "hospital_entrance"
     MGOAL_FIND_ITEM,         // Find an item of a given type
     MGOAL_FIND_ANY_ITEM,     // Find an item tagged with this mission
     MGOAL_FIND_MONSTER,      // Find and retrieve a friendly monster
@@ -75,6 +79,7 @@ struct mission_start {
     static void standard           ( mission *); // Standard for its goal type
     static void join               ( mission *); // NPC giving mission joins your party
     static void infect_npc         ( mission *); // "infection", remove antibiotics
+    static void need_drugs_npc     ( mission *); // "need drugs" remove item
     static void place_dog          ( mission *); // Put a dog in a house!
     static void place_zombie_mom   ( mission *); // Put a zombie mom in a house!
     static void place_zombie_bay   ( mission *); // Put a boss zombie in the refugee/evac center back bay
@@ -132,6 +137,11 @@ struct mission_start {
     static void ranch_bartender_3  ( mission *); // Expand Bar
     static void ranch_bartender_4  ( mission *); // Expand Bar
     static void place_book         ( mission *); // Place a book to retrieve
+    static void reveal_weather_station ( mission *); // Find weather logs
+    static void reveal_office_tower( mission *); // Find corporate accounts
+    static void reveal_doctors_office ( mission *); // Find patient records
+    static void reveal_cathedral   ( mission *); // Find relic
+    static void reveal_refugee_center ( mission *); // Find refugee center
 };
 
 struct mission_end { // These functions are run when a mission ends
@@ -165,13 +175,15 @@ struct mission_type {
     int target_npc_id = -1;
     std::string monster_type = "mon_null";
     int monster_kill_goal = -1;
-    oter_id target_id;
+    string_id<oter_type_t> target_id;
     mission_type_id follow_up = mission_type_id( "MISSION_NULL" );
 
     std::function<bool(const tripoint &)> place = mission_place::always;
     std::function<void(mission *)> start = mission_start::standard;
     std::function<void(mission *)> end = mission_end::standard;
     std::function<void(mission *)> fail = mission_fail::standard;
+
+    std::map<std::string, std::string> dialogue;
 
     mission_type() = default;
     mission_type(mission_type_id ID, std::string NAME, mission_goal GOAL, int DIF, int VAL,
@@ -203,28 +215,30 @@ struct mission_type {
     static const std::vector<mission_type> &get_all();
 
     static void reset();
-    static void load_mission_type( JsonObject & );
+    static void load_mission_type( JsonObject &jo, const std::string &src );
 
-    void load( JsonObject & );
-private:
-    /**
-     * All the known mission templates.
-     */
-    static std::vector<mission_type> types;
+    static void check_consistency();
+
+    void load( JsonObject &jo, const std::string &src );
 };
 
 class mission : public JsonSerializer, public JsonDeserializer
 {
+public:
+    enum class mission_status {
+        yet_to_start,
+        in_progress,
+        success,
+        failure
+    };
 private:
-    friend struct mission_type; // so mission_type::create is simpler
-    friend struct mission_start; // so it can initialize some properties
+        friend struct mission_type; // so mission_type::create is simpler
+        friend struct mission_start; // so it can initialize some properties
+        friend class debug_menu::mission_debug;
+
         const mission_type *type;
         std::string description;// Basic descriptive text
-        /**
-         * True if the mission is failed. Failed missions are completed per definition
-         * and should not be reused. Failed mission should not be changed further.
-         */
-        bool failed;
+        mission_status status;
         unsigned long value;    // Cash/Favor value of completing this
         npc_favor reward;       // If there's a special reward for completing it
         int uid;                // Unique ID number, used for referencing elsewhere
@@ -233,7 +247,7 @@ private:
         tripoint target;
         itype_id item_id;       // Item that needs to be found (or whatever)
         int item_count;         // The number of above items needed
-        oter_id target_id;      // Destination type to be reached
+        string_id<oter_type_t> target_id;      // Destination type to be reached
         npc_class_id recruit_class;// The type of NPC you are to recruit
         int target_npc_id;     // The ID of a specific NPC to interact with
         std::string monster_type;    // Monster ID that are to be killed
@@ -244,10 +258,10 @@ private:
         int step;               // How much have we completed?
         mission_type_id follow_up;   // What mission do we get after this succeeds?
         int player_id; // The id of the player that has accepted this mission.
-        bool was_started; // whether @ref mission_type::start had been called
 public:
 
         std::string name();
+        mission_type_id mission_id();
         using JsonSerializer::serialize;
         void serialize(JsonOut &jsout) const override;
         using JsonDeserializer::deserialize;
@@ -300,6 +314,13 @@ public:
     bool is_complete( int npc_id ) const;
     /** Checks if the player has failed the matching mission and returns true if they have. */
     bool has_failed() const;
+    /** Checks if the mission is started, but not failed and not succeeded. */
+    bool in_progress() const;
+    /** Processes this mission. */
+    void process();
+
+    // @todo Give topics a string_id
+    std::string dialogue_for_topic( const std::string &topic ) const;
 
     /**
      * Create a new mission of the given type and assign it to the given npc.
@@ -330,21 +351,25 @@ public:
 
     // Don't use this, it's only for loading legacy saves.
     static void unserialize_legacy( std::istream &fin );
-    // Serializes and unserializes all missions in @ref active_missions
+    // Serializes and unserializes all missions
     static void serialize_all( JsonOut &json );
     static void unserialize_all( JsonIn &jsin );
     /** Converts a vector mission ids to a vector of mission pointers. Invalid ids are skipped! */
     static std::vector<mission*> to_ptr_vector( const std::vector<int> &vec );
     static std::vector<int> to_uid_vector( const std::vector<mission*> &vec );
 
-private:
-    /**
-     * Missions which have been created, they might have been assigned or can be assigned or
-     * are already done. They are stored with the main save.
-     * Key is the mission id (@ref uid).
-     */
-    static std::unordered_map<int, mission> active_missions;
+    // For save/load
+    static std::vector<mission*> get_all_active();
+    static void add_existing( const mission &m );
 
+    static mission_status status_from_string( const std::string &s );
+    static const std::string status_to_string( mission_status st );
+
+    /** Used to handle saves from before player_id was a member of mission */
+    void set_player_id_legacy_0c( int id );
+
+private:
+    bool legacy_no_player_id = false;
     // Don't use this, it's only for loading legacy saves.
     void load_info(std::istream &info);
 

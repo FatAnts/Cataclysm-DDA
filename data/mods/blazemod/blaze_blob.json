@@ -1,7 +1,38 @@
 [
   {
+    "id": "bfeedfuel",
+    "type": "AMMO",
+    "category": "fuel",
+    "name": "liquified blob feed",
+    "name_plural": "bfeedfuel",
+    "description": "Liquified blob feed, useful for fueling certain blob based vehicle parts",
+    "weight": 50,
+    "volume": 1,
+    "price": 40,
+    "price_postapoc": 800,
+    "phase": "liquid",
+    "container": "jerrycan",
+    "material": "hydrocarbons",
+    "fuel": { "energy": 35 },
+    "symbol": "=",
+    "color": "red",
+    "count": 250,
+    "stack_size": 250,
+    "ammo_type": [ "bfeed" ],
+    "range": 4,
+    "damage": 5,
+    "pierce": 5
+  },
+  {
+    "id": "blobrep",
+    "type": "requirement",
+    "//": "Material for fixing parts made from blobs.",
+    "components": [ [ [ "bfeed", 1 ] ] ]
+  },
+  {
     "id": "bfeed",
     "type": "AMMO",
+    "category": "fuel",
     "name": "blob feed",
     "name_plural": "blob feed",
     "description": "An amalgam of various types of organic material, contains everything the blob needs to be healthy.  You think...",
@@ -10,6 +41,7 @@
     "to_hit": -3,
     "bashing": 8,
     "material": "flesh",
+    "fuel": { "energy": 1 },
     "symbol": "*",
     "color": "red",
     "count": 25,
@@ -151,6 +183,7 @@
     "copy-from": "flamethrower_simple",
     "type": "GUN",
     "name": "simple flamethrower",
+    "range": 2,
     "extend": {
       "ammo_effects": [ "STREAM" ],
       "flags": [ "FIRE_20" ]
@@ -290,27 +323,11 @@
   },
   {
     "id": "gasoline",
+    "copy-from": "gasoline",
     "type": "AMMO",
     "category": "fuel",
     "name": "gasoline",
     "name_plural": "gasoline",
-    "description": "Gasoline is a highly flammable liquid.  When under pressure, it has the potential for violent explosion.",
-    "weight": 1,
-    "volume": 1,
-    "price": 40,
-    "price_postapoc": 800,
-    "phase": "liquid",
-    "container": "jerrycan",
-    "material": "hydrocarbons",
-    "symbol": "=",
-    "color": "light_red",
-    "count": 250,
-    "stack_size": 250,
-    "ammo_type": "gasoline",
-    "range": 4,
-    "damage": 5,
-    "pierce": 5,
-    "effects": [ "FLAME", "INCENDIARY", "NEVER_MISFIRES" ],
     "explosion": {
       "power": 10,
       "distance_factor": 0.01,
@@ -670,15 +687,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "clip_size": 20,
-    "ammo_effects": [
-      "JET",
-      "BEANBAG",
-      "BLINDS_EYES",
-      "RECOVER_100",
-      "WIDE",
-      "NO_BOOM",
-      "CUSTOM_EXPLOSION"
-    ],
+    "ammo_effects": [ "JET", "BEANBAG", "BLINDS_EYES", "RECOVER_100", "WIDE", "NO_BOOM", "CUSTOM_EXPLOSION" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "NO_BOOM", "FIRE_20" ]
   },
   {
@@ -723,11 +732,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "clip_size": 20,
-    "ammo_effects": [
-      "JET",
-      "ACID_BOMB",
-      "WIDE"
-    ],
+    "ammo_effects": [ "JET", "ACID_BOMB", "WIDE" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "FIRE_20" ]
   },
   {
@@ -882,13 +887,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "clip_size": 100,
-    "ammo_effects": [
-      "WIDE",
-      "ACT_ON_RANGED_HIT",
-      "RECOVER_100",
-      "NO_EMBED",
-      "CUSTOM_EXPLOSION"
-    ],
+    "ammo_effects": [ "WIDE", "ACT_ON_RANGED_HIT", "RECOVER_100", "NO_EMBED", "CUSTOM_EXPLOSION" ],
     "qualities": [ [ "JACK", 12 ] ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "FIRE_100" ]
   },
@@ -935,10 +934,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "clip_size": 50,
-    "ammo_effects": [
-      "FRAG",
-      "WIDE"
-    ],
+    "ammo_effects": [ "FRAG", "WIDE" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "NO_BOOM", "FIRE_20" ]
   },
   {
@@ -1020,7 +1016,7 @@
     }
   },
   {
-    "id": "sickle",
+    "id": "gelrazor",
     "type": "GUN",
     "name": "gel razor",
     "description": "A living blob turned into an autonomous weapon.  An enhanced metabolism allows it to calcify large. toothy discs that is then launched towards any nearby threats.  The amorphous mass can be shaped and attached at your touch, but the weapon itself is inert without something to control it.",
@@ -1039,10 +1035,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "clip_size": 20,
-    "ammo_effects": [
-      "BOUNCE",
-      "WIDE"
-    ],
+    "ammo_effects": [ "BOUNCE", "WIDE" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "NO_BOOM" ]
   },
   {
@@ -1060,7 +1053,7 @@
     "symbol": ";",
     "color": "blue",
     "use_action": {
-      "target": "sickle",
+      "target": "gelrazor",
       "msg": "The blob balloons to full size.",
       "type": "delayed_transform",
       "transform_age": 4800,
@@ -1085,11 +1078,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "ups_charges": 19,
-    "ammo_effects": [
-      "LIGHTNING",
-      "BEANBAG",
-      "WIDE"
-    ],
+    "ammo_effects": [ "LIGHTNING", "BEANBAG", "WIDE" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "NO_BOOM" ]
   },
   {
@@ -1134,11 +1123,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "clip_size": 20,
-    "ammo_effects": [
-      "JET",
-      "BEANBAG",
-      "WIDE"
-    ],
+    "ammo_effects": [ "JET", "BEANBAG", "WIDE" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "FIRE_20" ]
   },
   {
@@ -1185,13 +1170,7 @@
     "durability": 10,
     "burst": 3,
     "clip_size": 20,
-    "ammo_effects": [
-      "INCENDIARY",
-      "FLARE",
-      "WIDE",
-      "NO_BOOM",
-      "STREAM"
-    ],
+    "ammo_effects": [ "INCENDIARY", "FLARE", "WIDE", "NO_BOOM", "STREAM" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN", "NO_BOOM", "FIRE_20" ]
   },
   {
@@ -1234,11 +1213,7 @@
     "sight_dispersion": 150,
     "durability": 10,
     "ups_charges": 199,
-    "ammo_effects": [
-      "LIGHTNING",
-      "EXPLOSIVE",
-      "WIDE"
-    ],
+    "ammo_effects": [ "LIGHTNING", "EXPLOSIVE", "WIDE" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN" ]
   },
   {
@@ -1265,20 +1240,12 @@
   },
   {
     "id": "water",
+    "copy-from": "water",
     "type": "COMESTIBLE",
+    "comestible_type": "DRINK",
     "category": "food",
     "name": "water",
     "name_plural": "water",
-    "description": "Water, the stuff of life, the best thirst-quencher available..",
-    "weight": 250,
-    "volume": 1,
-    "price": 50,
-    "phase": "liquid",
-    "container": "bottle_plastic",
-    "symbol": "~",
-    "color": "light_cyan",
-    "comestible_type": "DRINK",
-    "quench": 50,
     "ammo_data": { "ammo_type": "water" },
     "explosion": {
       "power": 30,

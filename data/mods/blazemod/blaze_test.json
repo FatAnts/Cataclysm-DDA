@@ -44,24 +44,23 @@
     "time": 108000,
     "reversible": false,
     "autolearn": true,
-    "byproducts": { "id": "vpower" },
+    "byproducts": [ [ "vpower" ] ],
+    "using": [ [ "forging_standard", 3 ], [ "steel_standard", 3 ] ],
     "qualities": [
       { "id": "HAMMER", "level": 2 },
-      { "id": "SAW_M", "level": 1 }
+      { "id": "SAW_M", "level": 1 },
+      { "id": "GLARE", "level": 2 },
+      { "id": "CHISEL", "level": 3 }
     ],
     "tools": [
-      [ [ "goggles_welding", -1 ] ],
       [ [ "tongs", -1 ] ],
-      [ [ "chisel", -1 ] ],
       [ [ "anvil", -1 ] ],
       [ [ "swage", -1 ] ],
-      [ [ "forge", 400 ], [ "char_forge", 100 ] ],
       [ [ "welder", 60 ], [ "welder_crude", 75 ], [ "toolset", 75 ], [ "oxy_torch", 6 ] ]
     ],
     "components": [
       [ [ "vortex_stone", 1 ] ],
       [ [ "chain", 6 ] ],
-      [ [ "scrap", 27 ], [ "steel_chunk", 9 ], [ "steel_lump", 3 ] ],
       [ [ "foot_crank", 6 ] ],
       [ [ "metal_tank", 1 ] ],
       [ [ "plastic_chunk", 30 ] ]
@@ -77,18 +76,18 @@
     "skills_required": [ [ "mechanics", 5 ], [ "electronics", 3 ] ],
     "time": 108000,
     "autolearn": true,
-    "byproducts": { "id": "vpower" },
+    "byproducts": [ [ "vpower" ] ],
+    "using": [ [ "forging_standard", 3 ], [ "steel_standard", 3 ] ],
     "qualities": [
       { "id": "HAMMER", "level": 2 },
-      { "id": "SAW_M", "level": 1 }
+      { "id": "SAW_M", "level": 1 },
+      { "id": "GLARE", "level": 2 },
+      { "id": "CHISEL", "level": 3 }
     ],
     "tools": [
-      [ [ "goggles_welding", -1 ] ],
       [ [ "tongs", -1 ] ],
-      [ [ "chisel", -1 ] ],
       [ [ "anvil", -1 ] ],
       [ [ "swage", -1 ] ],
-      [ [ "forge", 400 ], [ "char_forge", 100 ] ],
       [ [ "welder", 60 ], [ "welder_crude", 75 ], [ "toolset", 75 ], [ "oxy_torch", 6 ] ]
     ],
     "components": [
@@ -96,7 +95,6 @@
       [ [ "chain", 6 ] ],
       [ [ "foot_crank", 3 ] ],
       [ [ "metal_tank", 1 ] ],
-      [ [ "scrap", 27 ], [ "steel_chunk", 9 ], [ "steel_lump", 3 ] ],
       [ [ "plastic_chunk", 30 ] ],
       [ [ "alternator_truck", 6 ], [ "alternator_car", 6 ], [ "alternator_motorbike", 6 ] ]
     ]
@@ -113,12 +111,10 @@
     "autolearn": true,
     "qualities": [
       { "id": "HAMMER", "level": 2 },
-      { "id": "SAW_M", "level": 1 }
+      { "id": "SAW_M", "level": 1 },
+      { "id": "GLARE", "level": 2 }
     ],
-    "tools": [
-      [ [ "goggles_welding", -1 ] ],
-      [ [ "welder", 60 ], [ "welder_crude", 75 ], [ "toolset", 75 ], [ "oxy_torch", 6 ] ]
-    ],
+    "tools": [ [ [ "welder", 60 ], [ "welder_crude", 75 ], [ "toolset", 75 ], [ "oxy_torch", 6 ] ] ],
     "components": [
       [ [ "cargo_rack", 1 ] ],
       [ [ "teleporter", 1 ] ],
@@ -257,12 +253,11 @@
     "difficulty": 10,
     "time": 30000,
     "autolearn": true,
-    "qualities": [ { "id": "HAMMER", "level": 3 } ],
-    "tools": [
-      [ [ "chisel", -1 ] ],
-      [ [ "cvd_machine", -1 ] ],
-      [ [ "oxy_torch", 2 ], [ "welder", 10 ], [ "welder_crude", 15 ], [ "toolset", 15 ] ]
+    "qualities": [
+      { "id": "HAMMER", "level": 3 },
+      { "id": "CHISEL", "level": 3 }
     ],
+    "tools": [ [ [ "oxy_torch", 2 ], [ "welder", 10 ], [ "welder_crude", 15 ], [ "toolset", 15 ] ] ],
     "components": [
       [ [ "charcoal", 50 ] ],
       [ [ "plasma", 10 ] ],
@@ -400,21 +395,10 @@
   },
   {
     "id": "charcoal",
+    "copy-from": "charcoal",
     "type": "AMMO",
     "category": "spare_parts",
     "name": "charcoal",
-    "name_plural": "charcoal",
-    "description": "Charcoal is a flammable carbon based material obtained by removing water and other volatile constituents from animal and vegetation substances.  It is produced by slowly heating wood or other substances in the absence of oxygen.",
-    "weight": 220,
-    "volume": 5,
-    "price": 1000,
-    "bashing": 1,
-    "phase": "solid",
-    "material": "wood",
-    "symbol": "=",
-    "color": "dark_gray",
-    "count": 10,
-    "ammo_type": "charcoal",
     "casing": "dcluster"
   },
   {
@@ -792,7 +776,6 @@
     "name": "diamond lance",
     "item": "diamondlance",
     "location": "on_roof",
-    "fuel_type": "charcoal",
     "symbol": "t",
     "broken_symbol": "#",
     "color": "white",
@@ -811,7 +794,6 @@
     "name": "diamond nova",
     "item": "diamondnova",
     "location": "on_roof",
-    "fuel_type": "charcoal",
     "symbol": "t",
     "broken_symbol": "#",
     "color": "white",
@@ -848,11 +830,7 @@
     "clip_size": 1,
     "reload": 1000,
     "valid_mod_locations": [],
-    "ammo_effects": [
-      "SHOT",
-      "FRAG",
-      "FLASHBANG"
-    ],
+    "ammo_effects": [ "SHOT", "FRAG", "FLASHBANG" ],
     "flags": [ "NEVER_JAMS", "MOUNTED_GUN" ]
   },
   {
@@ -876,7 +854,7 @@
     "type": "AMMO",
     "name": "diamond fragments",
     "description": "These small fragments of diamond are formed as a byproduct from the crystallization process of a diamond matrix.  While the substance usually decays when separated from the catalyst; these fragments are small enough to remain stable.",
-    "weight": 350,
+    "weight": 3,
     "volume": 1,
     "price": 10000,
     "bashing": 1,
@@ -944,6 +922,7 @@
     "id": "spiral_matrix",
     "type": "TOOL",
     "name": "diamond matrix",
+    "name_plural": "diamond matrices",
     "description": "A sparkling diamond with a dazzling spiral pattern.  Small pieces of glittering crystal form on the edges as you hold it.",
     "weight": 250,
     "volume": 1,
@@ -1005,7 +984,7 @@
       { "item": "steel_chunk", "count": [ 2, 5 ] },
       { "item": "plastic_chunk", "count": [ 2, 8 ] }
     ],
-    "flags": [ "FUEL_TANK", "REACTOR" ]
+    "flags": [ "REACTOR" ]
   },
   {
     "id": "vgen2",
@@ -1032,7 +1011,7 @@
       { "item": "scrap", "count": [ 4, 12 ] },
       { "item": "plastic_chunk", "count": [ 2, 8 ] }
     ],
-    "flags": [ "ENGINE", "TOOL_NONE", "FUEL_TANK" ]
+    "flags": [ "ENGINE", "TOOL_NONE" ]
   },
   {
     "id": "vgen2",
@@ -1269,6 +1248,7 @@
     "bashing": 1,
     "phase": "solid",
     "material": "diamond",
+    "fuel": { "energy": 1 },
     "symbol": "=",
     "color": "magenta",
     "count": 1,

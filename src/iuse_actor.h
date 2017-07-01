@@ -1,3 +1,4 @@
+#pragma once
 #ifndef IUSE_ACTOR_H
 #define IUSE_ACTOR_H
 
@@ -27,6 +28,8 @@ using ammotype = string_id<ammunition_type>;
 using itype_id = std::string;
 class material_type;
 using material_id = string_id<material_type>;
+class emit;
+using emit_id = string_id<emit>;
 
 /**
  * Transform an item into a specific type.
@@ -77,7 +80,7 @@ class iuse_transform : public iuse_actor
         /** displayed if item is in player possession with %s replaced by item name */
         std::string need_charges_msg;
 
-        std::string menu_option_text;
+        std::string menu_text;
 
         iuse_transform( const std::string &type = "transform" ) : iuse_actor( type ) {}
 
@@ -211,7 +214,7 @@ class consume_drug_iuse : public iuse_actor
         /** A list of stats and adjustments to them. **/
         std::map<std::string, int> stat_adjustments;
 
-        /** Modify player @vitamin_levels by random amount between min (first) and max (second) */
+        /** Modify player vitamin_levels by random amount between min (first) and max (second) */
         std::map<vitamin_id, std::pair<int,int>> vitamins;
 
         /** How many move points this action takes. */
@@ -451,7 +454,8 @@ class inscribe_actor : public iuse_actor
             material_id( "chitin" ),
             material_id( "iron" ),
             material_id( "steel" ),
-            material_id( "silver" )
+            material_id( "silver" ),
+            material_id( "bone" )
         };
 
         // How will the inscription be described
@@ -629,8 +633,8 @@ class holster_actor : public iuse_actor
         int max_weight = -1;
         /** Total number of items that holster can contain **/
         int multi = 1;
-        /** Base move cost per unit volume when wielding the contained item */
-        int draw_cost = VOLUME_MOVE_COST;
+        /** Base cost of accessing/storing an item. Scales down to half of that with skills. */
+        int draw_cost = INVENTORY_HANDLING_PENALTY;
         /** Guns using any of these skills can be holstered */
         std::vector<skill_id> skills;
         /** Items with any of these flags set can be holstered */
@@ -648,6 +652,7 @@ class holster_actor : public iuse_actor
         void load( JsonObject &jo ) override;
         long use( player *, item *, bool, const tripoint & ) const override;
         iuse_actor *clone() const override;
+        void info( const item &, std::vector<iteminfo> & ) const override;
 };
 
 /**
@@ -662,8 +667,8 @@ class bandolier_actor : public iuse_actor
         /** What types of ammo can be stored? */
         std::set<ammotype> ammo;
 
-        /** Base move cost per unit volume when storing/retrieving contained items */
-        int draw_cost = VOLUME_MOVE_COST;
+        /** Base cost of accessing/storing an item. Scales down to half of that with skills. */
+        int draw_cost = INVENTORY_HANDLING_PENALTY;
 
         /** Check if obj could be stored in the bandolier */
         bool can_store( const item& bandolier, const item& obj ) const;
@@ -761,6 +766,8 @@ class repair_item_actor : public iuse_actor
         void load( JsonObject &jo ) override;
         long use( player *, item *, bool, const tripoint & ) const override;
         iuse_actor *clone() const override;
+
+        std::string get_name() const override;
 };
 
 class heal_actor : public iuse_actor
@@ -822,7 +829,8 @@ class place_trap_actor : public iuse_actor
         using trap_str_id = string_id<trap>;
         using ter_str_id = string_id<ter_t>;
         struct data {
-            trap_str_id trap = trap_str_id( "tr_null" ); // TODO: should be NULL_ID
+            data();
+            trap_str_id trap;
             /** The message shown when the trap has been set. */
             std::string done_message;
             /** Amount of practice of the "trap" skill. */
@@ -841,7 +849,7 @@ class place_trap_actor : public iuse_actor
          * Contains a terrain id of the terrain that must exist in a neighbor square to allow
          * placing this trap. If empty, it is ignored. This is for example for snare traps.
          */
-        ter_str_id needs_neighbor_terrain = ter_str_id( "t_null" ); // TODO: should be NULL_ID
+        ter_str_id needs_neighbor_terrain;
         /** Data that applies to unburied traps and to traps that *can * not be buried. */
         data unburied_data;
         /**
@@ -853,14 +861,29 @@ class place_trap_actor : public iuse_actor
         /**
          * The trap that makes up the outer layer of a 3x3 trap. This is not supported for buried traps!
          */
-        trap_str_id outer_layer_trap = trap_str_id( "tr_null" ); // TODO: should be NULL_ID
+        trap_str_id outer_layer_trap;
         bool is_allowed( player &p, const tripoint &pos, const std::string &name ) const;
 
-        place_trap_actor( const std::string &type = "place_trap" ) : iuse_actor( type ) {}
+        place_trap_actor( const std::string &type = "place_trap" );
         ~place_trap_actor() override { }
         void load( JsonObject &jo ) override;
         long use( player*, item*, bool, const tripoint & ) const override;
         iuse_actor *clone() const override;
+};
+
+class emit_actor : public iuse_actor
+{
+    public:
+        std::set<emit_id> emits;
+        /** If true multiplies the emits by number of charges on the item. */
+        bool scale_qty = false;
+
+        emit_actor( const std::string &type = "emit_actor" ) : iuse_actor( type ) {}
+        ~emit_actor() override { }
+        void load( JsonObject &jo ) override;
+        long use( player*, item*, bool, const tripoint & ) const override;
+        iuse_actor *clone() const override;
+        void finalize( const itype_id &my_item_type ) override;
 };
 
 #endif

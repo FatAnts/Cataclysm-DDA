@@ -1,3 +1,4 @@
+#pragma once
 #ifndef ITEM_LOCATION_H
 #define ITEM_LOCATION_H
 
@@ -65,6 +66,7 @@ class item_location : public JsonSerializer, public JsonDeserializer
         std::string describe( const Character *ch = nullptr ) const;
 
         /** Move an item from the location to the character inventory
+         *  @param ch Character who's inventory gets the item
          *  @param qty if specified limits maximum obtained charges
          *  @warning caller should restack inventory if item is to remain in it
          *  @warning all further operations using this class are invalid
@@ -93,6 +95,12 @@ class item_location : public JsonSerializer, public JsonDeserializer
     private:
         class impl;
         std::shared_ptr<impl> ptr;
+
+        /* Not implemented on purpose. This triggers a compiler / linker
+         * error when used in any implicit conversion. It prevents the
+         * implicit conversion to int. */
+        template<typename T>
+        operator T() const;
 };
 
 #endif

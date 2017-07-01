@@ -26,22 +26,16 @@ void NameGenerator::load_name( JsonObject &jo )
 
     if( usage == "given" ) {
         type |= nameIsGivenName;
-        name = pgettext( "Given Name", name.c_str() );
     } else if( usage == "family" ) {
         type |= nameIsFamilyName;
-        name = pgettext( "Family Name", name.c_str() );
     } else if( usage == "universal" ) {
         type |= nameIsGivenName | nameIsFamilyName;
-        name = pgettext( "Either Name", name.c_str() );
     } else if( usage == "backer" ) {
         type |= nameIsFullName;
-        name = pgettext( "Full Name", name.c_str() );
     } else if( usage == "city" ) {
         type |= nameIsTownName;
-        name = pgettext( "City Name", name.c_str() );
     } else if( usage == "world" ) {
         type |= nameIsWorldName;
-        name = pgettext( "World Name", name.c_str() );
     }
 
     // Gender is optional
@@ -164,6 +158,6 @@ void NameGenerator::load( JsonIn &jsin )
 void load_names_from_file( const std::string &filename )
 {
     using namespace std::placeholders;
-    read_from_file( filename, std::bind( &NameGenerator::load, &NameGenerator::generator(), _1 ) );
+    read_from_file_json( filename, std::bind( &NameGenerator::load, &NameGenerator::generator(), _1 ) );
 }
 

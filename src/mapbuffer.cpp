@@ -14,6 +14,7 @@
 #include "trap.h"
 #include "vehicle.h"
 #include "submap.h"
+#include "computer.h"
 
 #include <sstream>
 
@@ -114,11 +115,14 @@ void mapbuffer::save( bool delete_after_save )
     // A set of already-saved submaps, in global overmap coordinates.
     std::set<tripoint> saved_submaps;
     std::list<tripoint> submaps_to_delete;
+    int next_report = 0;
     for( auto &elem : submaps ) {
-        if (num_total_submaps > 100 && num_saved_submaps % 100 == 0) {
+        if( num_total_submaps > 100 && num_saved_submaps >= next_report ) {
             popup_nowait(_("Please wait as the map saves [%d/%d]"),
                          num_saved_submaps, num_total_submaps);
+            next_report += std::max( 100, num_total_submaps / 20 );
         }
+
         // Whatever the coordinates of the current submap are,
         // we're saving a 2x2 quad of submaps at a time.
         // Submaps are generated in quads, so we know if we have one member of a quad,
@@ -368,8 +372,8 @@ void mapbuffer::save_quad( const std::string &dirname, const std::string &filena
         jsout.end_array();
 
         // Output the computer
-        if (sm->comp.name != "") {
-            jsout.member( "computers", sm->comp.save_data() );
+        if( sm->comp != nullptr ) {
+            jsout.member( "computers", sm->comp->save_data() );
         }
 
         // Output base camp if any
@@ -400,7 +404,7 @@ submap *mapbuffer::unserialize_submaps( const tripoint &p )
               om_addr.x << "." << om_addr.y << "." << om_addr.z << ".map";
 
     using namespace std::placeholders;
-    if( !read_from_file_optional( quad_path.str(), std::bind( &mapbuffer::deserialize, this, _1 ) ) ) {
+    if( !read_from_file_optional_json( quad_path.str(), std::bind( &mapbuffer::deserialize, this, _1 ) ) ) {
         // If it doesn't exist, trigger generating it.
         return NULL;
     }
@@ -600,7 +604,9 @@ void mapbuffer::deserialize( JsonIn &jsin )
                 }
             } else if( submap_member_name == "computers" ) {
                 std::string computer_data = jsin.get_string();
-                sm->comp.load_data( computer_data );
+                std::unique_ptr<computer> new_comp( new computer( "BUGGED_COMPUTER", -100 ) );
+                new_comp->load_data( computer_data );
+                sm->comp.reset( new_comp.release() );
             } else if( submap_member_name == "camp" ) {
                 std::string camp_data = jsin.get_string();
                 sm->camp.load_data( camp_data );

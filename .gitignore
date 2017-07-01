@@ -58,7 +58,7 @@ gmon.out
 # System Files
 Thumbs.db
 .DS_Store
-core
+._.DS_Store
 tags
 cscope.*
 
@@ -130,3 +130,6 @@ Cataclysm.nam
 
 # Distribution script results
 msvc-full-features/distribution
+
+# Transifex Client
+.tx/

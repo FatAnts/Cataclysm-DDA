@@ -17,7 +17,7 @@
     "use_action" : {
       "type": "holster",
       "max_volume": 15,
-      "draw_cost": 20,
+      "draw_cost": 150,
       "skills": ["smg", "shotgun", "rifle", "launcher"]
     },
     "flags" : ["BELTED", "OVERSIZE", "NO_QUICKDRAW"]
@@ -42,7 +42,7 @@
       "type": "holster",
       "max_volume": 2,
       "max_weight": 1000,
-      "draw_cost": 30,
+      "draw_cost": 150,
       "skills": ["pistol"]
     }
   },
@@ -78,7 +78,7 @@
     "use_action": {
       "type": "holster",
       "max_volume": 4,
-      "draw_cost": 3,
+      "draw_cost": 80,
       "skills": ["pistol", "shotgun"]
     }
   },
@@ -96,16 +96,15 @@
     "color": "green",
     "covers": ["TORSO"],
     "coverage": 20,
-    "encumbrance": 4,
+    "encumbrance": 2,
     "storage": 12,
     "material_thickness" : 2,
     "use_action": {
         "type": "holster",
          "max_volume": 8,
-         "draw_cost": 5,
          "skills": ["smg", "shotgun", "rifle"]
     },
-    "flags": ["VARSIZE", "WATER_FRIENDLY", "STURDY", "WAIST"]
+    "flags": ["WATER_FRIENDLY", "STURDY", "WAIST"]
   },
   {
     "id": "XL_holster",

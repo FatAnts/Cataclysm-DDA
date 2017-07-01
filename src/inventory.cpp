@@ -131,6 +131,7 @@ inventory inventory::operator+ (const item &rhs)
 void inventory::unsort()
 {
     sorted = false;
+    binned = false;
 }
 
 bool stack_compare(const std::list<item> &lhs, const std::list<item> &rhs)
@@ -147,6 +148,7 @@ void inventory::sort()
 void inventory::clear()
 {
     items.clear();
+    binned = false;
 }
 
 void inventory::add_stack(const std::list<item> newits)
@@ -166,6 +168,7 @@ void inventory::clone_stack (const std::list<item> &rhs)
         newstack.push_back( rh );
     }
     items.push_back(newstack);
+    binned = false;
 }
 
 void inventory::push_back(std::list<item> newits)
@@ -221,20 +224,11 @@ char inventory::find_usable_cached_invlet(const std::string &item_type)
         if( g->u.assigned_invlet.count(invlet) ) {
             continue;
         }
-        if( g->u.weapon.invlet == invlet ) {
+        // Check if anything is using this invlet.
+        if( g->u.invlet_to_position( invlet ) != INT_MIN ) {
             continue;
         }
-        // Check if anything is using this invlet.
-        bool invlet_is_used = false;
-        for( auto &elem : items ) {
-            if( elem.front().invlet == invlet ) {
-                invlet_is_used = true;
-                break;
-            }
-        }
-        if( !invlet_is_used ) {
-            return invlet;
-        }
+        return invlet;
     }
 
     return 0;
@@ -242,33 +236,7 @@ char inventory::find_usable_cached_invlet(const std::string &item_type)
 
 item &inventory::add_item(item newit, bool keep_invlet, bool assign_invlet)
 {
-    bool reuse_cached_letter = false;
-
-    // Avoid letters that have been manually assigned to other things.
-    if( !keep_invlet && g->u.assigned_invlet.count(newit.invlet) ) {
-        newit.invlet = '\0';
-    }
-
-    // Check how many stacks of this type already are in our inventory.
-    if(!keep_invlet && assign_invlet) {
-        // Do we have this item in our inventory favourites cache?
-        char temp_invlet = find_usable_cached_invlet(newit.typeId());
-        if( temp_invlet != 0 ) {
-            newit.invlet = temp_invlet;
-            reuse_cached_letter = true;
-        }
-
-        // If it's not in our cache and not a lowercase letter, try to give it a low letter.
-        if(!reuse_cached_letter && (newit.invlet < 'a' || newit.invlet > 'z')) {
-            assign_empty_invlet(newit);
-        }
-
-        // Make sure the assigned invlet doesn't exist already.
-        if(this == &g->u.inv && g->u.invlet_to_position(newit.invlet) != INT_MIN) {
-            assign_empty_invlet(newit);
-        }
-    }
-
+    binned = false;
 
     // See if we can't stack this item.
     for( auto &elem : items ) {
@@ -287,9 +255,10 @@ item &inventory::add_item(item newit, bool keep_invlet, bool assign_invlet)
     }
 
     // Couldn't stack the item, proceed.
-    if(!reuse_cached_letter) {
-        update_cache_with_item(newit);
+    if( !keep_invlet ) {
+        update_invlet( newit, assign_invlet );
     }
+    update_cache_with_item( newit );
 
     std::list<item> newstack;
     newstack.push_back(newit);
@@ -319,6 +288,7 @@ void inventory::restack(player *p)
         return;
     }
 
+    binned = false;
     std::list<item> to_restack;
     int idx = 0;
     for (invstack::iterator iter = items.begin(); iter != items.end(); ++iter, ++idx) {
@@ -388,8 +358,9 @@ void inventory::form_from_map( const tripoint &origin, int range, bool assign_in
             const itype *type = f.crafting_pseudo_item_type();
             if (type != NULL) {
                 const itype *ammo = f.crafting_ammo_item_type();
-                item furn_item( type, calendar::turn, ammo ? count_charges_in_list( ammo, g->m.i_at( p ) ) : 0 );
+                item furn_item( type, calendar::turn, 0);
                 furn_item.item_tags.insert("PSEUDO");
+                furn_item.charges = ammo ? count_charges_in_list(ammo, g->m.i_at(p)) : 0;
                 add_item(furn_item);
             }
         }
@@ -402,7 +373,6 @@ void inventory::form_from_map( const tripoint &origin, int range, bool assign_in
             }
         }
         // Kludges for now!
-        ter_id terrain_id = g->m.ter( p );
         if (g->m.has_nearby_fire( p, 0 )) {
             item fire("fire", 0);
             fire.charges = 1;
@@ -412,13 +382,6 @@ void inventory::form_from_map( const tripoint &origin, int range, bool assign_in
         item water = g->m.water_from( p );
         if( !water.is_null() ) {
             add_item( water );
-        }
-        // add cvd forge from terrain
-        if (terrain_id == t_cvdmachine) {
-            item cvd_machine("cvd_machine", 0);
-            cvd_machine.charges = 1;
-            cvd_machine.item_tags.insert("PSEUDO");
-            add_item(cvd_machine);
         }
         // kludge that can probably be done better to check specifically for toilet water to use in
         // crafting
@@ -474,14 +437,13 @@ void inventory::form_from_map( const tripoint &origin, int range, bool assign_in
         }
 
         if(faupart >= 0 ) {
-            item clean_water("water_clean", 0);
-            clean_water.charges = veh->fuel_left("water_clean");
-            add_item(clean_water);
-
-            item water("water", 0);
-            water.charges = veh->fuel_left("water");
-            // TODO: Poison
-            add_item(water);
+            for( const auto &it : veh->fuels_left() ) {
+                item fuel( it.first , 0 );
+                if( fuel.made_of( LIQUID ) ) {
+                    fuel.charges = it.second;
+                    add_item( fuel );
+                }
+            }
         }
 
         if (kpart >= 0) {
@@ -489,15 +451,6 @@ void inventory::form_from_map( const tripoint &origin, int range, bool assign_in
             hotplate.charges = veh->fuel_left("battery", true);
             hotplate.item_tags.insert("PSEUDO");
             add_item(hotplate);
-
-            item clean_water("water_clean", 0);
-            clean_water.charges = veh->fuel_left("water_clean");
-            add_item(clean_water);
-
-            item water("water", 0);
-            water.charges = veh->fuel_left("water");
-            // TODO: Poison
-            add_item(water);
 
             item pot("pot", 0);
             pot.item_tags.insert("PSEUDO");
@@ -560,6 +513,7 @@ std::list<item> inventory::reduce_stack_internal(const Locator &locator, int qua
     std::list<item> ret;
     for (invstack::iterator iter = items.begin(); iter != items.end(); ++iter) {
         if (item_matches_locator(iter->front(), locator, pos)) {
+            binned = false;
             if(quantity >= (int)iter->size() || quantity < 0) {
                 ret = *iter;
                 items.erase(iter);
@@ -590,6 +544,7 @@ item inventory::remove_item(const item *it)
 {
     auto tmp = remove_items_with( [&it](const item& i) { return &i == it; }, 1 );
     if( !tmp.empty() ) {
+        binned = false;
         return tmp.front();
     }
     debugmsg("Tried to remove a item not in inventory (name: %s)", it->tname().c_str());
@@ -602,6 +557,7 @@ item inventory::remove_item_internal(const Locator &locator)
     int pos = 0;
     for (invstack::iterator iter = items.begin(); iter != items.end(); ++iter) {
         if (item_matches_locator(iter->front(), locator, pos)) {
+            binned = false;
             if (iter->size() > 1) {
                 std::list<item>::iterator stack_member = iter->begin();
                 char invlet = stack_member->invlet;
@@ -652,6 +608,7 @@ std::list<item> inventory::remove_randomly_by_volume( const units::volume &volum
             chosen_item->invlet = result.back().invlet;
         }
         if( chosen_stack->empty() ) {
+            binned = false;
             items.erase( chosen_stack );
         }
     }
@@ -779,6 +736,7 @@ std::list<item> inventory::use_amount(itype_id it, int _quantity)
             }
         }
         if (iter->empty()) {
+            binned = false;
             iter = items.erase(iter);
         } else if (iter != items.end()) {
             ++iter;
@@ -1009,6 +967,66 @@ void inventory::assign_empty_invlet(item &it, bool force)
     debugmsg("could not find a hotkey for %s", it.tname().c_str());
 }
 
+void inventory::reassign_item( item &it, char invlet, bool remove_old )
+{
+    if( it.invlet == invlet ) { // no change needed
+        return;
+    }
+    if( remove_old && it.invlet ) {
+        auto invlet_list_iter = invlet_cache.find( it.typeId() );
+        if( invlet_list_iter != invlet_cache.end() ) {
+            auto &invlet_list = invlet_list_iter->second;
+            invlet_list.erase( std::remove_if( invlet_list.begin(), invlet_list.end(), [&it]( char cached_invlet ) {
+                return cached_invlet == it.invlet;
+            } ), invlet_list.end() );
+        }
+    }
+    it.invlet = invlet;
+    update_cache_with_item( it );
+}
+
+void inventory::update_invlet( item &newit, bool assign_invlet ) {
+    // Avoid letters that have been manually assigned to other things.
+    if( newit.invlet && g->u.assigned_invlet.find( newit.invlet ) != g->u.assigned_invlet.end() &&
+            g->u.assigned_invlet[newit.invlet] != newit.typeId() ) {
+        newit.invlet = '\0';
+    }
+
+    // Remove letters that are not in the favourites cache
+    if( newit.invlet ) {
+        auto invlet_list_iter = invlet_cache.find( newit.typeId() );
+        bool found = false;
+        if( invlet_list_iter != invlet_cache.end() ) {
+            auto &invlet_list = invlet_list_iter->second;
+            found = std::find( invlet_list.begin(), invlet_list.end(), newit.invlet ) != invlet_list.end();
+        }
+        if( !found ) {
+            newit.invlet = '\0';
+        }
+    }
+
+    // Remove letters that have been assigned to other items in the inventory
+    if( newit.invlet ) {
+        char tmp_invlet = newit.invlet;
+        newit.invlet = '\0';
+        if( g->u.invlet_to_position( tmp_invlet ) == INT_MIN ) {
+            newit.invlet = tmp_invlet;
+        }
+    }
+
+    if( assign_invlet ) {
+        // Assign a cached letter to the item
+        if( !newit.invlet ) {
+            newit.invlet = find_usable_cached_invlet( newit.typeId() );
+        }
+
+        // Give the item an invlet if it has none
+        if( !newit.invlet ) {
+            assign_empty_invlet( newit );
+        }
+    }
+}
+
 std::set<char> inventory::allocated_invlets() const
 {
     std::set<char> invlets;
@@ -1019,4 +1037,23 @@ std::set<char> inventory::allocated_invlets() const
         }
     }
     return invlets;
+}
+
+const itype_bin &inventory::get_binned_items() const
+{
+    if( binned ) {
+        return binned_items;
+    }
+
+    binned_items.clear();
+
+    // Hack warning
+    inventory *this_nonconst = const_cast<inventory *>( this );
+    this_nonconst->visit_items( [ this ]( item *e ) {
+        binned_items[ e->typeId() ].push_back( e );
+        return VisitResponse::NEXT;
+    } );
+
+    binned = true;
+    return binned_items;
 }

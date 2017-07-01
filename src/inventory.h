@@ -1,3 +1,4 @@
+#pragma once
 #ifndef INVENTORY_H
 #define INVENTORY_H
 
@@ -10,6 +11,7 @@
 #include <utility>
 #include <vector>
 #include <functional>
+#include <unordered_map>
 
 class map;
 class npc;
@@ -18,6 +20,7 @@ typedef std::list< std::list<item> > invstack;
 typedef std::vector< std::list<item>* > invslice;
 typedef std::vector< const std::list<item>* > const_invslice;
 typedef std::vector< std::pair<std::list<item>*, int> > indexed_invslice;
+typedef std::unordered_map< itype_id, std::list<const item *> > itype_bin;
 
 class salvage_actor;
 
@@ -170,13 +173,24 @@ class inventory : public visitable<inventory>
         // Assigns an invlet if any remain.  If none do, will assign ` if force is
         // true, empty (invlet = 0) otherwise.
         void assign_empty_invlet(item &it, bool force = false);
+        // Assigns the item with the given invlet, and updates the favourite invlet cache. Does not check for uniqueness
+        void reassign_item( item &it, char invlet, bool remove_old = true );
+        // Removes invalid invlets, and assigns new ones if assign_invlet is true. Does not update the invlet cache.
+        void update_invlet( item &it, bool assign_invlet = true );
 
         std::set<char> allocated_invlets() const;
+
+        /**
+         * Returns visitable items binned by their itype.
+         * May not contain items that wouldn't be visited by @ref visitable methods.
+         */
+        const itype_bin &get_binned_items() const;
+
+        void update_cache_with_item( item &newit );
 
     private:
         // For each item ID, store a set of "favorite" inventory letters.
         std::map<std::string, std::vector<char> > invlet_cache;
-        void update_cache_with_item(item &newit);
         char find_usable_cached_invlet(const std::string &item_type);
 
         // Often items can be located using typeid, position, or invlet.  To reduce code duplication,
@@ -186,6 +200,14 @@ class inventory : public visitable<inventory>
 
         invstack items;
         bool sorted;
+
+        mutable bool binned;
+        /**
+         * Items binned by their type.
+         * That is, item_bin["carrot"] is a list of pointers to all carrots in inventory.
+         * `mutable` because this is a pure cache that doesn't affect the contained items.
+         */
+        mutable itype_bin binned_items;
 };
 
 #endif

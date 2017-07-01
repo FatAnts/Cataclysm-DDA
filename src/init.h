@@ -1,3 +1,4 @@
+#pragma once
 #ifndef INIT_H
 #define INIT_H
 
@@ -5,11 +6,9 @@
 
 #include <string>
 #include <vector>
+#include <list>
 #include <memory>
 #include <functional>
-
-class Item_factory;
-class vpart_info;
 
 /**
  * This class is used to load (and unload) the dynamic
@@ -49,14 +48,20 @@ class vpart_info;
  */
 class DynamicDataLoader
 {
-        friend Item_factory;
-        friend vpart_info;
-
     public:
         typedef std::string type_string;
         typedef std::map<type_string, std::function<void( JsonObject &, const std::string & )>>
                 t_type_function_map;
         typedef std::vector<std::string> str_vec;
+
+        /**
+         * JSON data dependent upon as-yet unparsed definitions
+         * first: JSON data, second: source identifier
+         */
+        typedef std::list<std::pair<std::string, std::string>> deferred_json;
+
+    private:
+        bool finalized = false;
 
     protected:
         /**
@@ -71,12 +76,14 @@ class DynamicDataLoader
          * @param jsin Might contain single object,
          * or an array of objects. Each object must have a
          * "type", that is part of the @ref type_function_map
+         * @param src String identifier for mod this data comes from
          * @throws std::exception on all kind of errors.
          */
         void load_all_from_json( JsonIn &jsin, const std::string &src );
         /**
          * Load a single object from a json object.
          * @param jo The json object to load the C++-object from.
+         * @param src String identifier for mod this data comes from
          * @throws std::exception on all kind of errors.
          */
         void load_object( JsonObject &jo, const std::string &src );
@@ -104,6 +111,7 @@ class DynamicDataLoader
          * @param path Either a folder (recursively load all
          * files with the extension .json), or a file (load only
          * that file, don't check extension).
+         * @param src String identifier for mod this data comes from
          * @throws std::exception on all kind of errors.
          */
         void load_data_from_path( const std::string &path, const std::string &src );
@@ -120,6 +128,18 @@ class DynamicDataLoader
          * @ref check_consistency
          */
         void finalize_loaded_data();
+
+        /**
+         * Loads and then removes entries from @param data
+         */
+        void load_deferred( deferred_json &data );
+
+        /**
+         * Returns whether the data is finalized and ready to be utilized.
+         */
+        bool is_data_finalized() const {
+            return finalized;
+        }
 };
 
 void init_names();

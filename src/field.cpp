@@ -6,6 +6,7 @@
 #include "field.h"
 #include "fire.h"
 #include "game.h"
+#include "fungal_effects.h"
 #include "messages.h"
 #include "translations.h"
 #include "material.h"
@@ -36,6 +37,8 @@ const efftype_id effect_stung( "stung" );
 const efftype_id effect_stunned( "stunned" );
 const efftype_id effect_teargas( "teargas" );
 const efftype_id effect_webbed( "webbed" );
+
+static const trait_id trait_M_SKIN2( "M_SKIN2" );
 
 #define INBOUNDS(x, y) \
  (x >= 0 && x < SEEX * my_MAPSIZE && y >= 0 && y < SEEY * my_MAPSIZE)
@@ -1193,7 +1196,8 @@ bool map::process_fields_in_submap( submap *const current_submap,
                         dirty_transparency_cache = true;
                         spread_gas( cur, p, curtype, 33,  5);
                         if( one_in( 10 - 2 * cur->getFieldDensity() ) ) {
-                            g->spread_fungus( p ); //Haze'd terrain
+                            // Haze'd terrain
+                            fungal_effects( *g, g->m ).spread_fungus( p );
                         }
 
                         break;
@@ -1214,11 +1218,9 @@ bool map::process_fields_in_submap( submap *const current_submap,
                         spread_gas( cur, p, curtype, 200, 60 );
 
                         if(one_in(20)) {
-                            int npcdex = g->npc_at( p );
-                            if (npcdex != -1) {
-                                npc *p = g->active_npc[npcdex];
-                                if(p->is_friend()) {
-                                    p->say(one_in(10) ? _("Whew... smells like skunk!") : _("Man, that smells like some good shit!"));
+                            if( npc *const np = g->critter_at<npc>( p ) ) {
+                                if(np->is_friend()) {
+                                    np->say(one_in(10) ? _("Whew... smells like skunk!") : _("Man, that smells like some good shit!"));
                                 }
                             }
                         }
@@ -1232,11 +1234,9 @@ bool map::process_fields_in_submap( submap *const current_submap,
                         spread_gas( cur, p, curtype, 175, 70 );
 
                         if(one_in(20)) {
-                            int npcdex = g->npc_at( p );
-                            if (npcdex != -1) {
-                                npc *p = g->active_npc[npcdex];
-                                if(p->is_friend()) {
-                                    p->say(_("I don't know... should you really be smoking that stuff?"));
+                            if( npc *const np = g->critter_at<npc>( p ) ) {
+                                if(np->is_friend()) {
+                                    np->say(_("I don't know... should you really be smoking that stuff?"));
                                 }
                             }
                         }
@@ -1249,11 +1249,9 @@ bool map::process_fields_in_submap( submap *const current_submap,
                         spread_gas( cur, p, curtype, 175, 80 );
 
                         if(one_in(20)) {
-                            int npcdex = g->npc_at( p );
-                            if (npcdex != -1) {
-                                npc *p = g->active_npc[npcdex];
-                                if(p->is_friend()) {
-                                    p->say(one_in(2) ? _("Ew, smells like burning rubber!") : _("Ugh, that smells rancid!"));
+                            if( npc *const np = g->critter_at<npc>( p ) ) {
+                                if(np->is_friend()) {
+                                    np->say(one_in(2) ? _("Ew, smells like burning rubber!") : _("Ugh, that smells rancid!"));
                                 }
                             }
                         }
@@ -1416,22 +1414,16 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                         g->u.deal_damage( nullptr, hit, damage_instance( DT_BASH, 6 ) );
                                         g->u.check_dead_state();
                                     }
-                                    int npcdex = g->npc_at( newp );
-                                    int mondex = g->mon_at( newp );
 
-                                    if( npcdex != -1 ) {
+                                    if( npc * const p = g->critter_at<npc>( newp ) ) {
                                         // TODO: combine with player character code above
-                                        npc *p = g->active_npc[npcdex];
                                         body_part hit = random_body_part();
                                         p->deal_damage( nullptr, hit, damage_instance( DT_BASH, 6 ) );
                                         if (g->u.sees( newp )) {
                                             add_msg(_("A %1$s hits %2$s!"), tmp.tname().c_str(), p->name.c_str());
                                         }
                                         p->check_dead_state();
-                                    }
-
-                                    if( mondex != -1 ) {
-                                        monster *mon = &(g->zombie(mondex));
+                                    } else if( monster * const mon = g->critter_at<monster>( newp ) ) {
                                         mon->apply_damage( nullptr, bp_torso, 6 - mon->get_armor_bash( bp_torso ) );
                                         if (g->u.sees( newp ))
                                             add_msg(_("A %1$s hits the %2$s!"), tmp.tname().c_str(),
@@ -1679,7 +1671,7 @@ void map::player_in_field( player &u )
         case fd_web: {
             //If we are in a web, can't walk in webs or are in a vehicle, get webbed maybe.
             //Moving through multiple webs stacks the effect.
-            if (!u.has_trait("WEB_WALKER") && !u.in_vehicle) {
+            if (!u.has_trait( trait_id( "WEB_WALKER" ) ) && !u.in_vehicle) {
                 //between 5 and 15 minus your current web level.
                 u.add_effect( effect_webbed, 1, num_bp, true, cur->getFieldDensity());
                 cur->setFieldDensity( 0 ); //Its spent.
@@ -1700,7 +1692,7 @@ void map::player_in_field( player &u )
                 break;
             }
 
-            if( u.has_trait( "ACIDPROOF" ) ) {
+            if( u.has_trait( trait_id( "ACIDPROOF" ) ) ) {
                 // No need for warnings
                 break;
             }
@@ -1775,8 +1767,8 @@ void map::player_in_field( player &u )
             break;
 
         case fd_fire:
-            if( u.has_active_bionic("bio_heatsink") || u.is_wearing("rm13_armor_on") ||
-                u.has_trait("M_SKIN2") ) {
+            if( u.has_active_bionic( bionic_id( "bio_heatsink" ) ) || u.is_wearing("rm13_armor_on") ||
+                u.has_trait( trait_M_SKIN2 ) ) {
                 //heatsink, suit, or internal restructuring prevents ALL fire damage.
                 break;
             }
@@ -1825,10 +1817,10 @@ void map::player_in_field( player &u )
                             parts_burned.push_back( bp_hand_r );
                             parts_burned.push_back( bp_arm_l );
                             parts_burned.push_back( bp_arm_r );
-                            // Fallthrough intentional.
+                            /* fallthrough */
                         case 2:
                             parts_burned.push_back( bp_torso );
-                            // Fallthrough intentional.
+                            /* fallthrough */
                         case 1:
                             parts_burned.push_back( bp_foot_l );
                             parts_burned.push_back( bp_foot_r );
@@ -1903,7 +1895,7 @@ void map::player_in_field( player &u )
             break;
 
         case fd_fungal_haze:
-            if (!u.has_trait("M_IMMUNE") && (!inside || (inside && one_in(4))) ) {
+            if (!u.has_trait( trait_id( "M_IMMUNE" ) ) && (!inside || (inside && one_in(4))) ) {
                 u.add_env_effect( effect_fungus, bp_mouth, 4, 100, num_bp, true );
                 u.add_env_effect( effect_fungus, bp_eyes, 4, 100, num_bp, true );
             }
@@ -1951,8 +1943,8 @@ void map::player_in_field( player &u )
         case fd_flame_burst:
             //A burst of flame? Only hits the legs and torso.
             if (inside) break; //fireballs can't touch you inside a car.
-            if (!u.has_active_bionic("bio_heatsink") && !u.is_wearing("rm13_armor_on") &&
-                !u.has_trait("M_SKIN2")) { //heatsink, suit, or Mycus fireproofing stops fire.
+            if (!u.has_active_bionic( bionic_id( "bio_heatsink" ) ) && !u.is_wearing("rm13_armor_on") &&
+                !u.has_trait( trait_M_SKIN2 )) { //heatsink, suit, or Mycus fireproofing stops fire.
                 u.add_msg_player_or_npc(m_bad, _("You're torched by flames!"), _("<npcname> is torched by flames!"));
                 u.deal_damage( nullptr, bp_leg_l, damage_instance( DT_HEAT, rng( 2, 6 ) ) );
                 u.deal_damage( nullptr, bp_leg_r, damage_instance( DT_HEAT, rng( 2, 6 ) ) );
@@ -1964,7 +1956,8 @@ void map::player_in_field( player &u )
 
         case fd_electricity:
         {
-            // Small universal damage based on density.
+            // Small universal damage based on density, only if not electroproofed.
+            if( u.is_elec_immune() ) break;
             int total_damage = 0;
             for( size_t i = 0; i < num_hp_parts; i++ ) {
                 const body_part bp = player::hp_to_bp( static_cast<hp_part>( i ) );
@@ -1973,7 +1966,7 @@ void map::player_in_field( player &u )
             }
 
             if( total_damage > 0 ) {
-                u.add_msg_player_or_npc(m_bad, _("You're electrocuted!"), _("<npcname> is electrocuted!"));
+                u.add_msg_player_or_npc(m_bad, _("You're shocked!"), _("<npcname> is shocked!"));
             } else {
                 u.add_msg_player_or_npc( _("The electric cloud doesn't affect you."),
                                      _("The electric cloud doesn't seem to affect <npcname>.") );
@@ -2053,7 +2046,7 @@ void map::player_in_field( player &u )
 
         case fd_incendiary:
             // Mysterious incendiary substance melts you horribly.
-            if (u.has_trait("M_SKIN2") || cur->getFieldDensity() == 1) {
+            if (u.has_trait( trait_M_SKIN2 ) || cur->getFieldDensity() == 1) {
                 u.add_msg_player_or_npc(m_bad, _("The incendiary burns you!"), _("The incendiary burns <npcname>!"));
                 u.hurtall(rng(1, 3), nullptr);
             } else {
@@ -2077,7 +2070,7 @@ void map::player_in_field( player &u )
                 bool inhaled = false;
                 const int density = cur->getFieldDensity();
                 inhaled = u.add_env_effect( effect_poison, bp_mouth, 5, density * 10 );
-                if( u.has_trait("THRESH_MYCUS") || u.has_trait("THRESH_MARLOSS") ) {
+                if( u.has_trait( trait_id( "THRESH_MYCUS" ) ) || u.has_trait( trait_id( "THRESH_MARLOSS" ) ) ) {
                     inhaled |= u.add_env_effect( effect_badpoison, bp_mouth, 5, density * 10 );
                     u.hurtall( rng( density, density * 2 ), nullptr );
                     u.add_msg_if_player( m_bad, _("The %s burns your skin."), cur->name().c_str() );
@@ -2317,17 +2310,14 @@ void map::monster_in_field( monster &z )
 
                 if (tries == 10) {
                     z.die_in_explosion( nullptr );
-                } else {
-                    int mon_hit = g->mon_at(newpos);
-                    if (mon_hit != -1) {
-                        if (g->u.sees(z)) {
-                            add_msg(_("The %1$s teleports into a %2$s, killing them both!"),
-                                       z.name().c_str(), g->zombie(mon_hit).name().c_str());
-                        }
-                        g->zombie( mon_hit ).die_in_explosion( &z );
-                    } else {
-                        z.setpos(newpos);
+                } else if( monster * const other = g->critter_at<monster>( newpos ) ) {
+                    if (g->u.sees(z)) {
+                        add_msg(_("The %1$s teleports into a %2$s, killing them both!"),
+                                   z.name().c_str(), other->name().c_str());
                     }
+                    other->die_in_explosion( &z );
+                } else {
+                    z.setpos(newpos);
                 }
             }
             break;
@@ -2431,7 +2421,7 @@ field_id field_entry::setFieldType(const field_id new_field_id){
 
 int field_entry::setFieldDensity(const int new_density)
 {
-    is_alive = new_density > 1;
+    is_alive = new_density > 0;
     return density = std::max( std::min( new_density, MAX_FIELD_DENSITY ), 1 );
 }
 
@@ -2579,10 +2569,16 @@ bool field_type_dangerous( field_id id )
     return ft.dangerous[0] || ft.dangerous[1] || ft.dangerous[2];
 }
 
-void map::emit_field( const tripoint &pos, const emit_id &src )
+void map::emit_field( const tripoint &pos, const emit_id &src, float mul )
 {
-    if( src.is_valid() &&  x_in_y( src->chance(), 100 ) ) {
-        propagate_field( pos, src->field(), src->qty(), src->density() );
+    if( !src.is_valid() ) {
+        return;
+    }
+
+    float chance = src->chance() * mul;
+    if( src.is_valid() &&  x_in_y( chance, 100 ) ) {
+        int qty = chance > 100.0f ? roll_remainder( src->qty() * chance / 100.0f ) : src->qty();
+        propagate_field( pos, src->field(), qty, src->density() );
     }
 }
 

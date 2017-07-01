@@ -10,6 +10,7 @@
       "CSC_WEAPON_RANGED",
       "CSC_WEAPON_EXPLOSIVE",
       "CSC_WEAPON_MODS",
+      "CSC_WEAPON_MAGAZINES",
       "CSC_WEAPON_OTHER"
     ]
   },{
@@ -91,12 +92,6 @@
       "CSC_OTHER_TRAPS",
       "CSC_OTHER_VEHICLE",
       "CSC_OTHER_OTHER"
-    ]
-  },{
-    "type" : "recipe_category",
-    "id" : "CC_NONCRAFT",
-    "recipe_subcategories" : [
-      "CSC_NONCRAFT"
     ]
   }
 ]

@@ -60,10 +60,10 @@ void player::power_mutations()
         return;
     }
 
-    std::vector <std::string> passive;
-    std::vector <std::string> active;
+    std::vector<trait_id> passive;
+    std::vector<trait_id> active;
     for( auto &mut : my_mutations ) {
-        if( !mutation_branch::get( mut.first ).activated ) {
+        if( !mut.first->activated ) {
             passive.push_back( mut.first );
         } else {
             active.push_back( mut.first );
@@ -71,7 +71,7 @@ void player::power_mutations()
         // New mutations are initialized with no key at all, so we have to do this here.
         if( mut.second.key == ' ' ) {
             for( const auto &letter : mutation_chars ) {
-                if( trait_by_invlet( letter ).empty() ) {
+                if( trait_by_invlet( letter ).is_null() ) {
                     mut.second.key = letter;
                     break;
                 }
@@ -157,13 +157,13 @@ void player::power_mutations()
                 mvwprintz( wBio, list_start_y, 2, c_ltgray, _( "None" ) );
             } else {
                 for( size_t i = scroll_position; i < passive.size(); i++ ) {
-                    const auto &md = mutation_branch::get( passive[i] );
+                    const auto &md = passive[i].obj();
                     const auto &td = my_mutations[passive[i]];
                     if( list_start_y + static_cast<int>( i ) ==
                         ( menu_mode == "examining" ? DESCRIPTION_LINE_Y : HEIGHT - 1 ) ) {
                         break;
                     }
-                    type = c_cyan;
+                    type = ( has_base_trait( passive[i] ) ? c_cyan : c_ltcyan );
                     mvwprintz( wBio, list_start_y + i, 2, type, "%c %s", td.key, md.name.c_str() );
                 }
             }
@@ -172,18 +172,16 @@ void player::power_mutations()
                 mvwprintz( wBio, list_start_y, second_column, c_ltgray, _( "None" ) );
             } else {
                 for( size_t i = scroll_position; i < active.size(); i++ ) {
-                    const auto &md = mutation_branch::get( active[i] );
+                    const auto &md = active[i].obj();
                     const auto &td = my_mutations[active[i]];
                     if( list_start_y + static_cast<int>( i ) ==
                         ( menu_mode == "examining" ? DESCRIPTION_LINE_Y : HEIGHT - 1 ) ) {
                         break;
                     }
-                    if( !td.powered ) {
-                        type = c_red;
-                    } else if( td.powered ) {
-                        type = c_ltgreen;
+                    if( td.powered ) {
+                        type = ( has_base_trait( active[i] ) ? c_green : c_ltgreen );
                     } else {
-                        type = c_ltred;
+                        type = ( has_base_trait( active[i] ) ? c_red : c_ltred );
                     }
                     // TODO: track resource(s) used and specify
                     mvwputch( wBio, list_start_y + i, second_column, type, td.key );
@@ -223,7 +221,7 @@ void player::power_mutations()
         if( menu_mode == "reassigning" ) {
             menu_mode = "activating";
             const auto mut_id = trait_by_invlet( ch );
-            if( mut_id.empty() ) {
+            if( mut_id.is_null() ) {
                 // Selected an non-existing mutation (or escape, or ...)
                 continue;
             }
@@ -240,7 +238,7 @@ void player::power_mutations()
                 continue;
             }
             const auto other_mut_id = trait_by_invlet( newch );
-            if( !other_mut_id.empty() ) {
+            if( !other_mut_id.is_null() ) {
                 std::swap( my_mutations[mut_id].key, my_mutations[other_mut_id].key );
             } else {
                 my_mutations[mut_id].key = newch;
@@ -266,12 +264,12 @@ void player::power_mutations()
             redraw = true;
         } else {
             const auto mut_id = trait_by_invlet( ch );
-            if( mut_id.empty() ) {
+            if( mut_id.is_null() ) {
                 // entered a key that is not mapped to any mutation,
                 // -> leave screen
                 break;
             }
-            const auto &mut_data = mutation_branch::get( mut_id );
+            const auto &mut_data = mut_id.obj();
             if( menu_mode == "activating" ) {
                 if( mut_data.activated ) {
                     if( my_mutations[mut_id].powered ) {

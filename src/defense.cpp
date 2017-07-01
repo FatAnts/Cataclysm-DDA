@@ -19,6 +19,7 @@
 #include "input.h"
 #include "overmap.h"
 #include "player.h"
+#include "string_input_popup.h"
 
 #include <string>
 #include <vector>
@@ -83,7 +84,6 @@ bool defense_game::init()
     g->u.dex_cur = g->u.dex_max;
     init_mtypes();
     init_constructions();
-    init_recipes();
     current_wave = 0;
     hunger = false;
     thirst = false;
@@ -196,13 +196,6 @@ void defense_game::init_constructions()
     standardize_construction_times(1); // Everything takes 1 minute
 }
 
-void defense_game::init_recipes()
-{
-    for( auto &elem : recipe_dict ) {
-        ( elem )->time /= 10; // Things take turns, not minutes
-    }
-}
-
 void defense_game::init_map()
 {
     auto &starting_om = overmap_buffer.get( 0, 0 );
@@ -269,7 +262,7 @@ void defense_game::init_map()
             int percent = 100 * ((j / 2 + MAPSIZE * (i / 2))) /
                           ((MAPSIZE) * (MAPSIZE + 1));
             if (percent >= old_percent + 1) {
-                popup_nowait(_("Please wait as the map generates [%2d%]"), percent);
+                popup_nowait(_("Please wait as the map generates [%2d%%]"), percent);
                 old_percent = percent;
             }
             // Round down to the nearest even number
@@ -506,9 +499,13 @@ void defense_game::setup()
                 selection--;
             }
             refresh_setup(w, selection);
-        } else if (action == "SAVE_TEMPLATE") {
-            std::string name = string_input_popup(_("Template Name:"), 20); //TODO: this is NON FUNCTIONAL!!!
-            refresh_setup(w, selection);
+        } else if( action == "SAVE_TEMPLATE" ) {
+            std::string name = string_input_popup()
+                               .title( _( "Template Name:" ) )
+                               .width( 20 )
+                               .query_string();
+            //TODO: this is NON FUNCTIONAL!!!
+            refresh_setup( w, selection );
         } else {
             switch (selection) {
             case 1: // Scenario selection

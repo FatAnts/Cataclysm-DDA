@@ -5,20 +5,20 @@
     "//": "Forming of bullets from raw materials",
     "tools": [
       [ [ "press", -1 ] ],
-      [ [ "fire", -1 ], [ "hotplate", 2 ] ]
+      [ [ "fire", -1 ], [ "hotplate", 2 ], [ "toolset", 2 ] ]
     ]
   },
   {
     "id": "forging_standard",
     "type": "requirement",
-    "//": "Forging of steel items (per steel chunk)",
-    "tools": [ [ [ "forge", 20 ], [ "char_forge", 20 ], [ "oxy_torch", 20 ] ] ]
+    "//": "Forging of steel items (per steel chunk), charcoal forge is already a substitute for forge",
+    "tools": [ [ [ "forge", 20 ], [ "oxy_torch", 20 ] ] ]
   },
   {
     "id": "sewing_standard",
     "type": "requirement",
     "//": "Crafting or repair of fabric items",
-    "tools": [ [ [ "sewing_kit", 1 ], [ "tailors_kit", 1 ], [ "needle_wood", 1 ] ] ]
+    "qualities": [ { "id": "SEW", "level": 1 } ]
   },
   {
     "id": "welding_standard",

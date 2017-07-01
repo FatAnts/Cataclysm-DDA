@@ -30,9 +30,8 @@
     "items": [
       [ "brick_kiln", 80 ],
       [ "con_mix", 120 ],
-      [ "elec_jackhammer", 30 ],
-      [ "jackhammer", 30 ],
-      [ "jacqueshammer", 30 ]
+      [ "elec_jackhammer", 40 ],
+      [ "jackhammer", 40 ]
     ]
   },
   {
@@ -199,7 +198,8 @@
       [ "needle_curved", 30 ],
       [ "scissors", 1000 ],
       [ "sewing_kit", 100 ],
-      [ "tailors_kit", 30 ]
+      [ "tailors_kit", 30 ],
+      [ "knitting_needles", 20 ]
     ]
   }
 ]
